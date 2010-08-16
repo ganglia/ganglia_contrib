@@ -1,0 +1,7 @@
+Ganglia ramdisk is a collection of a cronjob and a start script that help you
+set up the gmetad rrds repository on a ramdisk intsead of using physical disk.
+This helps as your cluster grows. Missing is grub.conf, which should be
+modified to specify the size of the ramdisk you wish to create. Also missing is
+switching /var/lib/ganglia/rrds (or wherever your default storage is) to a
+symlink and pointing it to the ramdisk.
+
