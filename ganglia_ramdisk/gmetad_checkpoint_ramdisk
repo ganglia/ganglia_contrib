@@ -1,0 +1,1 @@
+12 * * * * root /usr/local/sbin/gmetad_checkpoint_ramdisk.sh

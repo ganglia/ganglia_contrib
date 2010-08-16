@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# script to setup ramdisk for ganglia
+#
+# chkconfig: 2345 19 01
+# description: sets up ramdisk for gmetad
+
+. /etc/rc.d/init.d/functions
+RETVAL=0
+
+RETVAL=0
+
+case "$1" in
+   start)
+      echo -n "Initializing ramdisk for ganglia: "
+
+	# Formats, mounts, and sets permissions on my 16MB ramdisk
+	/sbin/mke2fs -q -m 0 /dev/ram0
+	/bin/mount /dev/ram0 /mnt/ram0
+	/bin/cp -a /var/lib/ganglia/rrds.checkpoint /mnt/ram0/rrds
+	mydate=`date +%Y%m%d.%H%M%S`
+	/bin/mv /var/lib/ganglia/rrds.checkpoint{,.$mydate}
+
+      echo
+      [ $RETVAL -eq 0 ] && touch /var/lock/subsys/gmetad_ramdisk
+      ;;
+
+  stop)
+      echo -n "Checkpointing RAMDISK to real disk: "
+	/bin/cp -a /mnt/ram0/rrds /var/lib/ganglia/rrds.checkpoint
+      RETVAL=$?
+      echo
+      [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/gmetad_ramdisk
+      ;;
+
+
+  *)
+      echo "Usage: $0 {start|stop)"
+      exit 1
+esac
+
+exit $RETVAL
+
+
+
