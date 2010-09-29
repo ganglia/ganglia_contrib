@@ -1,7 +1,15 @@
 #!/usr/bin/ruby
+
+#################################################################################
+# Parse Ganglia XML stream and send metrics to Graphite
+# License: Same as Ganglia
+# Author: Vladimir Vuksan
+# Modified from script written by: Kostas Georgiou
+#################################################################################
 require "rexml/document"
 require 'socket'
 
+# Adjust to the appropriate values
 ganglia_hostname = 'localhost'
 ganglia_port = 8649
 graphite_host = "localhost"
