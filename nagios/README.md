@@ -72,3 +72,10 @@ PHP Warning:  include_once(): Failed opening './version.php' for inclusion (incl
 
 You will need to put in the full path to version.php in /var/www/html/ganglia.php. Look for the
 include that includes version.php
+
+
+# More
+
+More indepth instructions can be found here
+
+[http://vuksan.com/linux/nagios_scripts.html#check_ganglia_metrics]
