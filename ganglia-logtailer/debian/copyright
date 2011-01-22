@@ -1,0 +1,20 @@
+This package was debianized by Lex Linden <lex@lindenlab.com> on
+Wed, 21 Oct 2009 15:02:51 -0400.
+
+Copyright:
+
+    Copyright (C) 2008 Linden Lab
+
+License:
+    Released under the GPL v2 or later.
+    For a full description of the license, please examine:
+    /usr/share/common-licenses/GPL-2
+
+
+The Debian packaging is:
+
+    Copyright (C) 2009 Linden Lab
+
+and is licensed under the GPL v2 or later.
+
+

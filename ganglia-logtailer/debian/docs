@@ -1,0 +1,4 @@
+debian/BUGS
+debian/README
+debian/README.Debian
+debian/ganglia-logtailer.cron.ex

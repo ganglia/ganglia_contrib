@@ -1,0 +1,5 @@
+usr/bin
+usr/share/ganglia-logtailer
+var/lib/ganglia-logtailer
+var/log/ganglia-logtailer
+

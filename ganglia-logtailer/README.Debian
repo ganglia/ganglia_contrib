@@ -1,0 +1,4 @@
+For the debian package, ganglia_logtailer_helper.pyc and tailnostate.py are 
+stored in /usr/share/ganglia-logtailer, along with all base plugins that ship 
+with ganglia-logtailer.  Plugins you create should be put in 
+/usr/local/share/ganglia-logtailer/.  

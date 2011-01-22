@@ -1,0 +1,122 @@
+Imported from
+
+https://bitbucket.org/maplebed/ganglia-logtailer
+
+##################
+##
+##  ganglia-logtailer
+##
+##  ganglia-logtailer is a python script that will tail any log file,
+##  crunch the data collected, and report summary data to ganglia.
+##
+##  This directory contains the script ganglia-logtailer, its required
+##  helper classes, and two example classes, one generic and one for
+##  parsing Apache logs.
+##
+##  Copyright Linden Lab, 2008
+##  License to modify and redistribute granted under the GPL v2 or later
+##
+##################
+
+
+0. Table of Contents
+1. Overview
+2. Installation
+3. License
+
+1. Overview
+
+Many metrics associated with ganglia and gmetric plugins are rather easy to
+collect; you poll the relevant application for a value and report it.  Examples
+are asking MySQL for the number of questions and calculating queries per
+second, or asking iostat for the percentage disk I/O currently being used.
+However, there are a large number of applications out there that don't support
+being queried for interesting data, but do provide a log file which, when
+properly parsed, yields the interesting data we desire.  An example of the
+latter category is Apache, which does not furnish any interface for measuring
+queries per second, yet has a log file allowing you to count how many queries
+come in over a specific time period.
+
+ganglia-logtailer is designed to make it easy to parse any log file, pull out
+the information you desire, and plug it into ganglia to make pretty graphs.
+
+ganglia-logtailer is comprised of three parts:
+* ganglia-logtailer - the python script doing the real work
+* ganglia_logtailer_helper.py and tailnostate.py - supporting python classes
+* ApacheLogtailer.py, DummyLogtailer.py, etc. - user modifiable, log-file specific classes
+
+You must modify DummyLogtailer.py or write new FooLogtailer.py classes for
+each of the log files you wish to parse.  As every log file has a specific
+format, you must write the regular expression to properly pick out interesting
+information for your specific application.  As each application has different
+ways of expressing what might be interesting metrics to graph, you must write
+the functions to collect the information present in each line of the log file.
+
+DummyLogtailer.py is an example file; it does nothing other than count the
+number of lines present in the log file and report lines per second.  However,
+it does have extensive comments explaining the purpose of each of the functions
+present in the file.  I would recommend reading that file and modifying it to
+do more interesting things.
+
+ApacheLogtailer.py is a fully functional class parsing an Apache log.  At
+Linden Lab, we use a custom log format (and include the very interesting %D -
+time to execute the query in microseconds), so the regular expression included
+there will probably have to be changed for your environment.
+ApacheLogtailer.py defines and returns the number of Apache requests per
+second, also broken out by return code (200, 300, 400, 500), and the average,
+maximum, and 90th percentile run time of all queries caught during the sample
+period.
+
+The rest of the *Logtailer.py classes present are customized for different
+types of logs (postfix, bind, etc.)
+
+ganglia-logtailer can be invoked in two different modes, either as a daemon
+(which tells it to run as a persistent process) or invoked from cron on a
+regular basis.  I recommend using daemon mode for testing, but invoking it from
+cron every 1-5 minutes for deploy.  I make this recommendation because (aside
+from minimizing the number of running daemons), there are no start scripts to
+invoke daemon mode on system boot, and there is no facility to relaunch the
+process if it were to crash or raise an exception.
+
+ganglia-logtailer will log certain bits of information to
+/var/log/ganglia/ganglia_logtailer in case of error.  Log level is variable by
+modfying ganglia-logtailer and editing the following line:
+logger.setLevel(logging.INFO) Look up the 'logging' python module for valid
+values.  (logging.DEBUG is a good bet)
+
+2. Installation
+
+ganglia-logtailer depends on the 'logtail' package
+(http://packages.debian.org/etch/logtail) when run in cron mode.
+
+i.   Copy ganglia-logtailer to /usr/local/bin/ (or wherever you store
+       unpackaged binaries)
+ii.  Copy ganglia_logtailer_helper.py and tailnostate.py to
+       /usr/local/share/ganglia-logtailer (or somewhere in your python search 
+       path)
+iii. Copy ApacheLogtailer.py and DummyLogtailer.py to /usr/local/share/ganglia-logtailer
+       (or somewhere in your python search path)
+
+Create the directory ganglia-logtailer uses to store state:
+/var/lib/ganglia-logtailer/
+
+Test the installation by invoking ganglia-logtailer with the DummyLogtailer
+class on a log file:
+# ganglia-logtailer --classname DummyLogtailer --log_file /var/log/daemon.log --mode daemon
+wait 30s to 1m, then check and see whether your new metric is present in
+ganglia.
+
+If all goes well, try out one of the real modules:
+# ganglia-logtailer --classname PostfixLogtailer --log-file /var/log/mail.log --mode daemon
+
+If that works as well, deploy!  Add the following to
+/etc/cron.d/ganglia-logtailer
+* * * * * root /usr/local/bin/ganglia-logtailer --classname PostfixLogtailer --log-file /var/log/mail.log --mode cron
+
+3. License
+
+These scripts are all released under the GPL v2 or later.  For a full
+description of the licence, please visit http://www.gnu.org/licenses/gpl.txt
+
+
+

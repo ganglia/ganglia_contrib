@@ -1,0 +1,24 @@
+Source: ganglia-logtailer
+Section: admin
+Priority: optional
+Maintainer: Lex Linden <lex@lindenlab.com>
+Build-Depends: debhelper (>= 5), python-support
+Standards-Version: 3.7.2
+
+Package: ganglia-logtailer
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python (>= 2.4), logtail, ganglia-monitor | ganglia
+Description: framework to crunch data from logfiles and send using gmetric
+ Many metrics associated with ganglia and gmetric plugins are rather easy to
+ collect; you poll the relevant application for a value and report it.  Examples
+ are asking MySQL for the number of questions and calculating queries per
+ second, or asking iostat for the percentage disk I/O currently being used.
+ However, there are a large number of applications out there that don't support
+ being queried for interesting data, but do provide a log file which, when
+ properly parsed, yields the interesting data we desire.  An example of the
+ latter category is Apache, which does not furnish any interface for measuring
+ queries per second, yet has a log file allowing you to count how many queries
+ come in over a specific time period.
+ .
+ ganglia-logtailer is designed to make it easy to parse any log file, pull out
+ the information you desire, and plug it into ganglia to make pretty graphs.

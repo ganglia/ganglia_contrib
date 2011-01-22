@@ -1,0 +1,33 @@
+Known Bugs
+
+** first run can be too expensive **
+
+The logtail upon which ganglia-logtailer relies reads in the entire file if no
+statefile exists.  This occurs when you run ganglia-logtailer for the first
+time.  ganglia-logtailer pipes all that data to /dev/null, but it still reads
+through the entire file.  This can take quite a while on big log files (~30m on
+an 8GB log file).  If you drop ganglia-logtailer into cron on a system with a
+large log file, it is easy to cause it to launch a second copy before the first
+has completed.  This increases load, which decreases the probability either
+will finish, causing a cascading failure.  After 150 copies of
+ganglia-logtailer are launched or so, the machine dies.
+
+There are two solutions to this problem, and both should be implemented.
+
+1) patch logtail to accept a -s or --skip option, that merely skips to the end
+of the file and writes out a statefile instead of reading through the entire
+file.  Update ganglia-logtailer to use this flag when it detects that it's the
+first run.
+
+2) make ganglia-logtailer create a lockfile when it starts (including the
+module and logfile names in the lockfile to allow multiple simultaneous
+instances to run on different data) and immediately bail if it detects a lock
+file.  (detecting a stale lockfile would be nice too.)  This would allow the
+first instance to read all the way through a large log file, and then it would
+simply pick up where it left off the next time.  The second benefit of this
+solution is that if you have misaligned the frequency of the cronjob launching
+ganglia-logtailer with the amount of time it takes to crunch your log file,
+this change will protect your system (though the stat collection will likely be
+impaired beyond usefulness, it is less likely to take down your machine).
+
+
