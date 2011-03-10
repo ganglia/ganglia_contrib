@@ -32,6 +32,7 @@ import fcntl
 sys.path.append("/usr/share/ganglia-logtailer")
 from tailnostate import LogTail
 from ganglia_logtailer_helper import LogtailerParsingException, LogtailerStateException, LockingError
+from math import floor
 
 ## globals
 gmetric = '/usr/bin/gmetric'
