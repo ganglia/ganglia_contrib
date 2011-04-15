@@ -213,7 +213,8 @@ class GangliaMetrics(object):
         try:
             cache_age = time.time() - os.path.getmtime(self.cache_path)
         except StandardError, e:
-            raise self.CacheReadError('Unable to check age of cache: %s' % e)
+            raise self.CacheReadError('Unable to check age of cache at %s: %s' %
+                                     (self.cache_path, e))
 
         if cache_age - self.cache_ttl > self.cache_grace or \
            (cache_age > self.cache_ttl and not ignore_expiration):
@@ -226,7 +227,7 @@ class GangliaMetrics(object):
                 cache = open(self.cache_path, 'rb')
                 metrics = pickle.load(cache)
             except StandardError, e:
-                raise self.CacheReadError('Unable to read from cache (%s): %s' %
+                raise self.CacheReadError('Unable to read from cache at %s: %s' %
                                          (self.cache_path, e))
             finally:
                 cache.close()
@@ -252,7 +253,8 @@ class GangliaMetrics(object):
             os.rename(cache_tmp[1], self.cache_path)
         except StandardError, e:
             os.unlink(cache_tmp[1])
-            raise self.CacheWriteError('Unable to update cache: %s' % e)
+            raise self.CacheWriteError('Unable to update cache at %s: %s' %
+                                      (self.cache_path, e))
 
 if __name__ == '__main__':
 
