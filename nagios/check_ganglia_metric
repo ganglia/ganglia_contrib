@@ -1,0 +1,318 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Ganglia metric check plugin for Nagios
+#
+# Copyright (C) 2011 by Michael T. Conigliaro <mike [at] conigliaro [dot] org>.
+# All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# No portion of this Software shall be used in any application which does not
+# use the ReportGrid platform to provide some subset of its functionality.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+
+import logging
+import os
+import pickle
+import pprint
+import random
+import socket
+import sys
+import tempfile
+import time
+from xml.etree.cElementTree import XML
+
+try:
+    from NagAconda import Plugin
+except ImportError, e:
+    print('%s (Hint: "pip install NagAconda" or "easy_install NagAconda")' % e)
+    sys.exit(2)
+
+
+__version__ = '2011.04.15'
+
+
+class GangliaMetrics(object):
+    """Ganglia metric check class"""
+
+    class Error(Exception):
+        """Base exception for all GangliaMetrics errors"""
+
+        def __init__(self, message, log_level='error'):
+            """Log all exception messages"""
+
+            getattr(logging.getLogger(__name__), log_level)(message)
+            super(GangliaMetrics.Error, self).__init__(message)
+
+    class GmetadError(Error):
+        """Base class for all gmetad errors"""
+
+    class GmetadNetworkError(GmetadError):
+        """Raised on gmetad network errors"""
+
+    class GmetadNoDataError(GmetadError):
+        """Raised when no data is received from gmetad"""
+
+    class GmetadXmlError(GmetadError):
+        """Raised on gmetad XML parse errors"""
+
+    class CacheError(Error):
+        """Base class for all cache errors"""
+
+    class CacheExpiredError(CacheError):
+        """Raised on cache expiration"""
+
+        def __init__(self, message):
+            """Override log level for these errors"""
+
+            super(GangliaMetrics.CacheExpiredError, self).__init__(message, 'info')
+
+    class CacheReadError(CacheError):
+        """Raised on cache read errors"""
+
+    class CacheWriteError(CacheError):
+        """Raised on cache write errors"""
+
+    class MetricNotFoundError(Error):
+        """Raised when metric host/name is not found"""
+
+    def __init__(self, gmetad_host, gmetad_port, gmetad_timeout, cache_path,
+                 cache_ttl, cache_ttl_splay, cache_grace, debug_level):
+        """Initialization"""
+
+        self.gmetad_host    = gmetad_host
+        self.gmetad_port    = int(gmetad_port)
+        self.gmetad_timeout = float(gmetad_timeout)
+        self.cache_path     = cache_path
+
+        splay_secs          = float(cache_ttl) * float(cache_ttl_splay) / 2
+        self.cache_ttl      = random.uniform(float(cache_ttl) - splay_secs,
+                                             float(cache_ttl) + splay_secs)
+        self.cache_grace    = cache_grace
+
+        # Configure debug logging
+        self.log = logging.getLogger(__name__)
+        if debug_level:
+            console_logger = logging.StreamHandler()
+            console_logger.setFormatter(
+                logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+            self.log.addHandler(console_logger)
+            try:
+                log_level = getattr(logging, [None, 'INFO', 'DEBUG'][debug_level])
+            except IndexError:
+                log_level = logging.DEBUG
+            finally:
+                self.log.setLevel(log_level)
+        else:
+            self.log.addHandler(logging.FileHandler(os.devnull))
+
+
+    def get_value(self, metric_host, metric_name):
+        """Return a value for the specified metric host/name"""
+
+        try:
+            metrics = self._cache_read()
+        except self.CacheError:
+            try:
+                metrics = self._gmetad_parse(self._gmetad_read())
+                self._cache_write(metrics)
+            except self.GmetadNetworkError:
+                self.log.info('Attempting to force read from cache')
+                metrics = self._cache_read(ignore_expiration=True)
+
+        self.log.debug("Dumping metrics\n%s", pprint.pformat(metrics))
+
+        if metric_host not in metrics:
+            raise self.MetricNotFoundError('Host "%s" not found' % metric_host)
+        elif metric_name not in metrics[metric_host]:
+            raise self.MetricNotFoundError('Metric "%s" for host "%s" not found' %
+                                          (metric_name, metric_host))
+
+        return metrics[metric_host][metric_name]
+
+    def _gmetad_read(self):
+        """Read XML data from Ganglia meta daemon (gmetad)"""
+
+        self.log.info('Connecting to gmetad at %s:%d',
+                      self.gmetad_host, self.gmetad_port)
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except StandardError, e:
+            raise self.GmetadNetworkError('Unable to create socket: %s' % e)
+
+        try:
+            try:
+                sock.settimeout(self.gmetad_timeout)
+                sock.connect((self.gmetad_host, self.gmetad_port))
+            except StandardError, e:
+                raise self.GmetadNetworkError('Unable to connect to gmetad at %s:%d: %s' %
+                                             (self.gmetad_host, self.gmetad_port, e))
+
+            self.log.info('Reading gmetad XML')
+
+            try:
+                xml_data = ''
+                buffer = sock.recv(4096)
+                while len(buffer):
+                    xml_data += buffer
+                    buffer = sock.recv(4096)
+                msg = 'Read %s bytes from gmetad' % len(xml_data)
+                if len(xml_data):
+                    self.log.info(msg)
+                else:
+                    raise self.GmetadNoDataError('%s (Hint: Check trusted_hosts and/or all_trusted in gmetad.conf)' % msg)
+            except StandardError, e:
+                raise self.GmetadNetworkError('Unable to read gmetad XML from %s:%d: %s' %
+                                             (self.gmetad_host, self.gmetad_port, e))
+        finally:
+            sock.close()
+
+        return xml_data
+
+    def _gmetad_parse(self, xml_data):
+        """Parse metrics from XML data"""
+
+        self.log.info('Parsing %d bytes of gmetad XML', len(xml_data))
+
+        metrics = {}
+        try:
+            for host in XML(xml_data).findall('GRID/CLUSTER/HOST'):
+                metrics[host.get('NAME')] = {}
+                for metric in host.findall('METRIC'):
+                    metrics[host.get('NAME')][metric.get('NAME')] = metric.get('VAL')
+        except Exception, e:
+            raise self.GmetadXmlError('Unable to parse gmetad XML: %s' % e)
+
+        self.log.info('Found metrics for %d hosts', len(metrics))
+
+        return metrics
+
+    def _cache_read(self, ignore_expiration=False):
+        """Read metrics from cache"""
+
+        self.log.info('Checking cache at %s', self.cache_path)
+
+        try:
+            cache_age = time.time() - os.path.getmtime(self.cache_path)
+        except StandardError, e:
+            raise self.CacheReadError('Unable to check age of cache: %s' % e)
+
+        if cache_age - self.cache_ttl > self.cache_grace or \
+           (cache_age > self.cache_ttl and not ignore_expiration):
+            raise self.CacheExpiredError('Cache is expired by %f seconds' %
+                                        (cache_age - self.cache_ttl))
+        else:
+            self.log.info('Cache expires in %f seconds' %
+                         (self.cache_ttl - cache_age))
+            try:
+                cache = open(self.cache_path, 'rb')
+                metrics = pickle.load(cache)
+            except StandardError, e:
+                raise self.CacheReadError('Unable to read from cache (%s): %s' %
+                                         (self.cache_path, e))
+            finally:
+                cache.close()
+
+        self.log.info('Found metrics for %d hosts', len(metrics))
+
+        return metrics
+
+    def _cache_write(self, metrics):
+        """Write metrics to cache"""
+
+        self.log.info('Updating cache at %s', self.cache_path)
+
+        try:
+            cache_tmp = tempfile.mkstemp()
+        except StandardError, e:
+            raise self.CacheWriteError('Unable to create temp file: %s' % e)
+
+        try:
+            self.log.info('Wrote %d bytes to cache', os.write(cache_tmp[0],
+                          pickle.dumps(metrics, pickle.HIGHEST_PROTOCOL)))
+            os.close(cache_tmp[0])
+            os.rename(cache_tmp[1], self.cache_path)
+        except StandardError, e:
+            os.unlink(cache_tmp[1])
+            raise self.CacheWriteError('Unable to update cache: %s' % e)
+
+if __name__ == '__main__':
+
+    # Initialize plugin
+    plugin = Plugin("Ganglia metric check plugin for Nagios", __version__)
+    cache_path = os.path.join(os.path.expanduser('~'), '.check_ganglia_metric.cache')
+    plugin.add_option('d', 'gmetad_host',
+                      'Ganglia meta daemon host (default: localhost)',
+                      default='localhost')
+    plugin.add_option('p', 'gmetad_port',
+                      'Ganglia meta daemon port (default: 8651)',
+                      default=8651)
+    plugin.add_option('t', 'gmetad_timeout',
+                      'Ganglia meta daemon connection/read timeout in seconds (default: 2)',
+                      default=2)
+    plugin.add_option('f', 'cache_path',
+                      'Metric cache path (default: %s)' % cache_path,
+                      default=cache_path)
+    plugin.add_option('l', 'cache_ttl',
+                      'Metric cache TTL in seconds (default: 60)',
+                      default=60)
+    plugin.add_option('s', 'cache_ttl_splay',
+                      'Metric cache TTL splay factor (default: 0.5)',
+                      default=0.5)
+    plugin.add_option('g', 'cache_grace',
+                      'Metric cache grace period in seconds (default: 60)',
+                      default=60)
+    plugin.add_option('a', 'metric_host',
+                      'Metric host address',
+                      required=True)
+    plugin.add_option('m', 'metric_name', 'Metric name', required=True)
+
+    plugin.enable_status('warning')
+    plugin.enable_status('critical')
+
+    plugin.start()
+
+    # Execute check
+    try:
+        metrics = GangliaMetrics(gmetad_host=plugin.options.gmetad_host,
+                                 gmetad_port=plugin.options.gmetad_port,
+                                 gmetad_timeout=plugin.options.gmetad_timeout,
+                                 cache_path=plugin.options.cache_path,
+                                 cache_ttl=plugin.options.cache_ttl,
+                                 cache_ttl_splay=plugin.options.cache_ttl_splay,
+                                 cache_grace=plugin.options.cache_grace,
+                                 debug_level=plugin.options.verbose)
+
+        value = metrics.get_value(metric_host=plugin.options.metric_host,
+                                  metric_name=plugin.options.metric_name)
+
+        plugin.set_value(plugin.options.metric_name, value)
+        plugin.set_status_message('%s = %s' %
+                                 (plugin.options.metric_name, value))
+
+    except (GangliaMetrics.MetricNotFoundError), e:
+         plugin.unknown_error(str(e))
+    except (GangliaMetrics.Error), e:
+        print(e)
+        sys.exit(2)
+
+    # Print results
+    plugin.finish()
