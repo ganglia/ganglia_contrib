@@ -20,11 +20,15 @@ Requirements
 
 To check which version of Python you have:
 
-``python -V``
+::
+
+  python -V
 
 To install NagAconda:
 
-``pip install NagAconda`` **or** ``easy_install NagAconda``
+::
+
+  pip install NagAconda`` **or** ``easy_install NagAconda
 
 
 Ganglia Configuration
@@ -36,11 +40,15 @@ your Nagios server.
 
 To allow connections from **nagios-server.example.com**:
 
-``trusted_hosts nagios-server.example.com``
+::
+
+  trusted_hosts nagios-server.example.com``
 
 To allow connections from **all hosts** (probably a security risk):
 
-``all_trusted on``
+::
+
+  all_trusted on
 
 
 Testing on the Command Line
@@ -51,32 +59,25 @@ First, let's see if the plugin can communicate with the Ganglia Meta Daemon:
 ::
 
   $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
-    --metric_host=host.example.com \
-    --metric_name=cpu_idle
+    --metric_host=host.example.com --metric_name=cpu_idle
   Status Ok, cpu_idle = 99.7|cpu_idle=99.7;;;;
 
 The "Status Ok" message indicates that the plugin is working. If you're having
 trouble getting this to work, try again with verbose logging enabled
-(``-v`` or ``-vv``) in order to gain some insight into what's going wrong.
+(``--verbose``) in order to gain better insight into what's going wrong.
 
 Now let's try setting an alert threshold:
 
 ::
 
   $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
-    --metric_host=host.example.com \
-    --metric_name=cpu_idle \
-    --critical=99
+    --metric_host=host.example.com --metric_name=cpu_idle --critical=99
   Status Critical, cpu_idle = 99.6|cpu_idle=99.6;;99;;
 
 We told the plugin to return a "Critical" status if the Idle CPU was greater
-than 99. The "Status Critical" message indicates that this worked. Note that
+than 99. The "Status Critical" message indicates that it worked. Note that
 **check_ganglia_metric** parses ranges and thresholds according to the
 `official Nagios plugin development guidelines <http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT>`_.
-
-So what if you wanted to see a list of
-
-
 
 **check_ganglia_metric** has many command line options. To see a complete list
 with brief explanations, run the plugin with the ``--help`` option.
@@ -104,6 +105,21 @@ Now you can use the above command in your service definitions:
     check_command        check_ganglia_metric!cpu_idle!0:20!0:0
     host_name            host.example.com
   }
+
+
+Tips and Tricks
+---------------
+
+It's possible to get a complete list of available hosts and metrics by enabling
+"more verbose" logging (``-vv``). Since the metric_host and metric_name options
+are required, you have a little bit of a "chicken and egg" problem here, but
+that's OK. Just supply some dummy data. The plugin will error out at the end
+with a "host/metric not found" error, but not before it dumps its cache:
+
+::
+
+  $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
+    --metric_host=dummy --metric_name=dummy
 
 
 Author
