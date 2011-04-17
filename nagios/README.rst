@@ -49,7 +49,7 @@ To allow connections from **nagios-server.example.com**:
 
 ::
 
-  trusted_hosts nagios-server.example.com``
+  trusted_hosts nagios-server.example.com
 
 To allow connections from **all hosts** (probably a security risk):
 
@@ -86,14 +86,14 @@ than 99. The "Status Critical" message indicates that it worked. Note that
 **check_ganglia_metric** parses ranges and thresholds according to the
 `official Nagios plugin development guidelines <http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT>`_.
 
-**check_ganglia_metric** has many command line options. To see a complete list
-with brief explanations, run the plugin with the ``--help`` option.
+To see a complete list of command line options with brief explanations, run 
+the plugin with the ``--help`` option.
 
 
 Nagios Configuration
 --------------------
 
-First create a command definition:
+First, create a command definition:
 
 ::
 
