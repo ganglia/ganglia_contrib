@@ -28,7 +28,14 @@ To install NagAconda:
 
 ::
 
-  pip install NagAconda`` **or** ``easy_install NagAconda
+  pip install NagAconda
+
+...or:
+
+::
+
+  easy_install NagAconda
+
 
 
 Ganglia Configuration
