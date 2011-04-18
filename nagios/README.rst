@@ -15,7 +15,7 @@ improvements.
 Requirements
 ------------
 
-#. Python >= 2.4
+#. Python >= 2.6
 #. `NagAconda <http://pypi.python.org/pypi/NagAconda>`_ >= 0.1.4
 
 To check which version of Python you have:
@@ -86,7 +86,7 @@ than 99. The "Status Critical" message indicates that it worked. Note that
 **check_ganglia_metric** parses ranges and thresholds according to the
 `official Nagios plugin development guidelines <http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT>`_.
 
-To see a complete list of command line options with brief explanations, run 
+To see a complete list of command line options with brief explanations, run
 the plugin with the ``--help`` option.
 
 
@@ -127,6 +127,12 @@ with a "host/metric not found" error, but not before it dumps its cache:
 
   $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
     --metric_host=dummy --metric_name=dummy
+
+
+Known Issues
+------------
+
+- Doesn't work with Python 2.4
 
 
 Author
