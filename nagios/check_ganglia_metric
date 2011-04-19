@@ -43,7 +43,7 @@ except ImportError, e:
     sys.exit(2)
 
 
-__version__ = '2011.04.15'
+__version__ = '2011.04.19'
 
 
 class GangliaMetrics(object):
@@ -115,8 +115,7 @@ class GangliaMetrics(object):
                 log_level = getattr(logging, [None, 'INFO', 'DEBUG'][debug_level])
             except IndexError:
                 log_level = logging.DEBUG
-            finally:
-                self.log.setLevel(log_level)
+            self.log.setLevel(log_level)
         else:
             self.log.addHandler(logging.FileHandler(os.devnull))
 
@@ -153,14 +152,14 @@ class GangliaMetrics(object):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except StandardError, e:
-            raise self.GmetadNetworkError('Unable to create socket: %s' % e)
+            raise self.GmetadNetworkError('Error while creating socket: %s' % e)
 
         try:
             try:
                 sock.settimeout(self.gmetad_timeout)
                 sock.connect((self.gmetad_host, self.gmetad_port))
             except StandardError, e:
-                raise self.GmetadNetworkError('Unable to connect to gmetad at %s:%d: %s' %
+                raise self.GmetadNetworkError('Error while connecting to gmetad at %s:%d: %s' %
                                              (self.gmetad_host, self.gmetad_port, e))
 
             self.log.info('Reading gmetad XML')
@@ -177,7 +176,7 @@ class GangliaMetrics(object):
                 else:
                     raise self.GmetadNoDataError('%s (Hint: Check trusted_hosts and/or all_trusted in gmetad.conf)' % msg)
             except StandardError, e:
-                raise self.GmetadNetworkError('Unable to read gmetad XML from %s:%d: %s' %
+                raise self.GmetadNetworkError('Error while reading gmetad XML from %s:%d: %s' %
                                              (self.gmetad_host, self.gmetad_port, e))
         finally:
             sock.close()
@@ -196,7 +195,7 @@ class GangliaMetrics(object):
                 for metric in host.findall('METRIC'):
                     metrics[host.get('NAME')][metric.get('NAME')] = metric.get('VAL')
         except Exception, e:
-            raise self.GmetadXmlError('Unable to parse gmetad XML: %s' % e)
+            raise self.GmetadXmlError('Error while parsing gmetad XML: %s' % e)
 
         self.log.info('Found metrics for %d hosts', len(metrics))
 
@@ -210,7 +209,7 @@ class GangliaMetrics(object):
         try:
             cache_age = time.time() - os.path.getmtime(self.cache_path)
         except StandardError, e:
-            raise self.CacheReadError('Unable to check age of cache at %s: %s' %
+            raise self.CacheReadError('Error while checking age of cache at %s: %s' %
                                      (self.cache_path, e))
 
         if cache_age - self.cache_ttl > self.cache_grace or \
@@ -223,11 +222,11 @@ class GangliaMetrics(object):
             try:
                 cache = open(self.cache_path, 'rb')
                 metrics = pickle.load(cache)
-            except StandardError, e:
-                raise self.CacheReadError('Unable to read from cache at %s: %s' %
-                                         (self.cache_path, e))
-            finally:
                 cache.close()
+            except StandardError, e:
+                raise self.CacheReadError('Error while reading from cache at %s: %s' %
+                                         (self.cache_path, e))
+
 
         self.log.info('Found metrics for %d hosts', len(metrics))
 
@@ -241,16 +240,16 @@ class GangliaMetrics(object):
         try:
             cache_tmp = tempfile.mkstemp()
         except StandardError, e:
-            raise self.CacheWriteError('Unable to create temp file: %s' % e)
+            raise self.CacheWriteError('Error while creating temp file: %s' % e)
 
         try:
-            self.log.info('Wrote %d bytes to cache', os.write(cache_tmp[0],
+            self.log.info('Writing %d bytes to cache', os.write(cache_tmp[0],
                           pickle.dumps(metrics, pickle.HIGHEST_PROTOCOL)))
             os.close(cache_tmp[0])
             os.rename(cache_tmp[1], self.cache_path)
         except StandardError, e:
             os.unlink(cache_tmp[1])
-            raise self.CacheWriteError('Unable to update cache at %s: %s' %
+            raise self.CacheWriteError('Error while updating cache at %s: %s' %
                                       (self.cache_path, e))
 
 if __name__ == '__main__':
