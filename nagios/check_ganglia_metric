@@ -227,7 +227,6 @@ class GangliaMetrics(object):
                 raise self.CacheReadError('Error while reading from cache at %s: %s' %
                                          (self.cache_path, e))
 
-
         self.log.info('Found metrics for %d hosts', len(metrics))
 
         return metrics
