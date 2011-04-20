@@ -116,11 +116,11 @@ Now you can use the above command in your service definitions:
     host_name            host.example.com
   }
 
-Now we have a small problem in that if something goes wrong with
-**check_ganglia_metric** (e.g. the cache file can't be read/written to, the
-Ganglia Meta Daemon can't be reached, etc.), every service that relies on it
-will fail, possibly inundating you with alerts. We can prevent this through the
-use of service dependencies.
+This will work fine until something goes wrong with **check_ganglia_metric**
+(e.g. the cache file can't be read/written to, the Ganglia Meta Daemon can't be
+reached, etc.). At that point, every service that relies on
+**check_ganglia_metric** will fail, possibly inundating you with alerts. We can
+prevent this through the use of service dependencies.
 
 The first thing we need to do is create a command for checking the age of a
 file:
