@@ -128,8 +128,8 @@ file:
 ::
 
   define command {
-    command_name check_file_age
-    command_line /usr/lib/nagios/plugins/check_file_age -f $ARG1$ -w $ARG2$ -c $ARG3$
+    command_name  check_file_age
+    command_line  /usr/lib/nagios/plugins/check_file_age -f $ARG1$ -w $ARG2$ -c $ARG3$
   }
 
 Next, we define a service which checks the age of **check_ganglia_metric**'s
@@ -140,12 +140,12 @@ that rely on **check_ganglia_metric**:
 ::
 
   define service {
-    service_description           Cache for check_ganglia_metric
-    use                           some_template
-    check_command                 check_file_age!/var/lib/nagios/.check_ganglia_metric.cache!60!120
-    host_name                     localhost
-    check_interval                1
-    max_check_attempts            1
+    service_description  Cache for check_ganglia_metric
+    use                  some_template
+    check_command        check_file_age!/var/lib/nagios/.check_ganglia_metric.cache!60!120
+    host_name            localhost
+    check_interval       1
+    max_check_attempts   1
   }
 
 ::
@@ -158,11 +158,11 @@ relies on **check_ganglia_metric**, I can save myself a lot of effort:
 ::
 
   define servicedependency {
-    host_name                     localhost
-    service_description           check_ganglia_metric
-    dependent_host_name           .*
-    dependent_service_description .* \- Ganglia$
-    execution_failure_criteria    c,p
+    host_name                      localhost
+    service_description            check_ganglia_metric
+    dependent_host_name            .*
+    dependent_service_description  .* \- Ganglia$
+    execution_failure_criteria     c,p
   }
 
 Now if something goes wrong with **check_ganglia_metric**, you'll get just one
