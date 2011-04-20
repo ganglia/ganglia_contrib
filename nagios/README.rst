@@ -122,8 +122,7 @@ reached, etc.). At that point, every service that relies on
 **check_ganglia_metric** will fail, possibly inundating you with alerts. We can
 prevent this through the use of `service dependencies <http://nagios.sourceforge.net/docs/3_0/dependencies.html>`_.
 
-The first thing we need to do is create a command for checking the age of a
-file:
+The first thing we need is a command definition for checking the age of a file:
 
 ::
 
@@ -165,12 +164,12 @@ relies on **check_ganglia_metric**, I can save myself a lot of effort:
     execution_failure_criteria     c,p
   }
 
-Now if something goes wrong with **check_ganglia_metric**, you'll get just one
-alert about the cache file, and all dependent service checks will be paused
-until you fix the problem that caused **check_ganglia_metric** to fail. Once
-the problem is fixed, you'll need to update the timestamp on the cache file in
-order to put the "Cache for check_ganglia_metric" service back into an OK state
-(which will allow dependent service checks to continue):
+Now if something goes wrong with **check_ganglia_metric**, only one alert will
+be sent out about the cache file, and all dependent service checks will be
+paused until you fix the problem that caused **check_ganglia_metric** to fail.
+Once the problem is fixed, you'll need to update the timestamp on the cache
+file in order to put the "Cache for check_ganglia_metric" service back into an
+OK state (which will allow dependent service checks to continue):
 
 ::
 
