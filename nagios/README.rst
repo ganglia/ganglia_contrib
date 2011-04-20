@@ -8,8 +8,8 @@ Introduction
 
 **check_ganglia_metric** is a `Nagios <http://nagios.org/>`_ plugin that allows
 you to trigger alerts on any Ganglia metric. This plugin was heavily inspired
-by Vladimir Vuksan's check_ganglia_metric.php, but it comes with a number of
-improvements.
+by `Vladimir Vuksan <http://vuksan.com>`_'s check_ganglia_metric.php, but it
+comes with a number of improvements.
 
 
 Requirements
