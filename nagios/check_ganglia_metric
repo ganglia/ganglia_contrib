@@ -133,7 +133,8 @@ class GangliaMetrics(object):
                 self.log.info('Attempting to force read from cache')
                 metrics = self._cache_read(ignore_expiration=True)
 
-        self.log.debug("Dumping metrics\n%s", pprint.pformat(metrics))
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug("Dumping metrics\n%s", pprint.pformat(metrics))
 
         if metric_host not in metrics:
             raise self.MetricNotFoundError('Host "%s" not found' % metric_host)
