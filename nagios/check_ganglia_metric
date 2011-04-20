@@ -192,9 +192,19 @@ class GangliaMetrics(object):
         metrics = {}
         try:
             for host in XML(xml_data).findall('GRID/CLUSTER/HOST'):
-                metrics[host.get('NAME')] = {}
+                host_name = host.get('NAME')
+                metrics[host_name] = {}
                 for metric in host.findall('METRIC'):
-                    metrics[host.get('NAME')][metric.get('NAME')] = metric.get('VAL')
+                    metric_name = metric.get('NAME')
+                    metrics[host_name][metric_name] = {
+                        'units': metric.get('UNITS'),
+                        'value': metric.get('VAL')
+                    }
+                    for extra_data in metric.findall('EXTRA_DATA/EXTRA_ELEMENT'):
+                        if extra_data.get('NAME') == 'TITLE':
+                            metrics[host_name][metric_name]['title'] = extra_data.get('VAL')
+                            break # No need for further searching
+
         except Exception, e:
             raise self.GmetadXmlError('Error while parsing gmetad XML: %s' % e)
 
@@ -302,13 +312,20 @@ if __name__ == '__main__':
         value = metrics.get_value(metric_host=plugin.options.metric_host,
                                   metric_name=plugin.options.metric_name)
 
-        plugin.set_value(plugin.options.metric_name, value)
-        plugin.set_status_message('%s = %s' %
-                                 (plugin.options.metric_name, value))
+        plugin.set_status_message('%s = %s %s' % (value['title'],
+                                                  value['value'],
+                                                  value['units']))
+
+        if value['units'].upper() in ('B', 'KB', 'MB', 'GB', 'TB') or \
+           value['units'].lower() in ('s', 'ms', 'us', 'ns', '%'):
+            plugin.set_value(plugin.options.metric_name, value['value'],
+                             scale=value['units'])
+        else:
+            plugin.set_value(plugin.options.metric_name, value['value'])
 
     except (GangliaMetrics.MetricNotFoundError), e:
          plugin.unknown_error(str(e))
-    except (GangliaMetrics.Error), e:
+    except (Exception), e:
         print(e)
         sys.exit(2)
 
