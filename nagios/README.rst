@@ -158,7 +158,7 @@ relies on **check_ganglia_metric**, I can save myself a lot of effort:
 
   define servicedependency {
     host_name                      localhost
-    service_description            check_ganglia_metric
+    service_description            Cache for check_ganglia_metric
     dependent_host_name            .*
     dependent_service_description  .* \- Ganglia$
     execution_failure_criteria     c,p
