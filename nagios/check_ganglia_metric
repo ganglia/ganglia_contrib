@@ -43,7 +43,7 @@ except ImportError, e:
     sys.exit(2)
 
 
-__version__ = '2011.04.20'
+__version__ = '2011.04.20a'
 
 
 class GangliaMetrics(object):
@@ -238,7 +238,7 @@ class GangliaMetrics(object):
         self.log.info('Updating cache at %s', self.cache_path)
 
         try:
-            cache_tmp = tempfile.mkstemp()
+            cache_tmp = tempfile.mkstemp(dir=os.path.dirname(self.cache_path))
         except StandardError, e:
             raise self.CacheWriteError('Error while creating temp file: %s' % e)
 
