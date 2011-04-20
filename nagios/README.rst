@@ -120,7 +120,7 @@ This will work fine until something goes wrong with **check_ganglia_metric**
 (e.g. the cache file can't be read/written to, the Ganglia Meta Daemon can't be
 reached, etc.). At that point, every service that relies on
 **check_ganglia_metric** will fail, possibly inundating you with alerts. We can
-prevent this through the use of service dependencies.
+prevent this through the use of `service dependencies <http://nagios.sourceforge.net/docs/3_0/dependencies.html>`_.
 
 The first thing we need to do is create a command for checking the age of a
 file:
