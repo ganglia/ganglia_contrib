@@ -118,7 +118,7 @@ Now you can use the above command in your service definitions:
 
 Now we have a small problem in that if something goes wrong with
 **check_ganglia_metric** (e.g. the cache file can't be read/written to, the
-Ganglia Meta Daemon can't be contacted, etc.), every service that relies on it
+Ganglia Meta Daemon can't be reached, etc.), every service that relies on it
 will fail, possibly inundating you with alerts. We can prevent this through the
 use of service dependencies.
 
@@ -164,6 +164,17 @@ relies on **check_ganglia_metric**, I can save myself a lot of effort:
     dependent_service_description .* \- Ganglia$
     execution_failure_criteria    c,p
   }
+
+Now if something goes wrong with **check_ganglia_metric**, you'll get just one
+alert about the cache file, and all dependent service checks will be paused
+until you fix the problem that caused **check_ganglia_metric** to fail. Once
+the problem is fixed, you'll need to update the timestamp on the cache file in
+order to put the "Cache for check_ganglia_metric" service back into an OK state
+(which will allow dependent service checks to continue):
+
+::
+
+  $ touch /var/lib/nagios/.check_ganglia_metric.cache
 
 
 Tips and Tricks
