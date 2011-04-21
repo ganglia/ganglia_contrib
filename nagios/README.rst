@@ -68,7 +68,7 @@ Meta Daemon:
 
   $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
     --metric_host=host.example.com --metric_name=cpu_idle
-  Status Ok, cpu_idle = 99.7|cpu_idle=99.7;;;;
+  Status Ok, CPU Idle = 99.3 %|cpu_idle=99.3%;;;;
 
 The "Status Ok" message indicates that **check_ganglia_metric** is working. If
 you're having trouble getting this to work, try again with verbose logging
@@ -81,7 +81,7 @@ Now let's try setting an alert threshold:
 
   $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
     --metric_host=host.example.com --metric_name=cpu_idle --critical=99
-  Status Critical, cpu_idle = 99.6|cpu_idle=99.6;;99;;
+  Status Critical, CPU Idle = 99.6 %|cpu_idle=99.6%;;99;;
 
 We told **check_ganglia_metric** to return a "Critical" status if the Idle CPU
 was greater than 99. The "Status Critical" message indicates that it worked.
@@ -188,7 +188,7 @@ with a "host/metric not found" error, but not before it dumps its cache:
 ::
 
   $ check_ganglia_metric --gmetad_host=gmetad-server.example.com \
-    --metric_host=dummy --metric_name=dummy
+    --metric_host=dummy --metric_name=dummy -vv
 
 
 Known Issues
