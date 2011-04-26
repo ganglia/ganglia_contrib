@@ -1,0 +1,9 @@
+This script will look for any gmetad.conf files in /etc/gmetad. It will then grab the xml_port, and attempt to connect to each port.
+It will grab the first 512 bytes of data. If it retrieves no data, or cannot connect it will then restart gmetad (with -r flag)
+
+Things to do:
+
+- Have it restart only the instance that is down
+-Have it verify xml tag in the data to verify it is xml
+
+Email any questions to jim.greene@gmail.com
