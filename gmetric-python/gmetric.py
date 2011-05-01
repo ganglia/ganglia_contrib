@@ -34,6 +34,9 @@
 #
 # Version 3.0 - 09-Jan-2011 Author: Vladimir Vuksan
 #   Made it work with the Ganglia 3.1 data format
+#
+# Version 3.1 - 30-Apr-2011 Author: Adam Tygart
+#   Added Spoofing support
 
 
 from xdrlib import Packer, Unpacker
@@ -76,7 +79,7 @@ class Gmetric:
         #self.socket.connect(self.hostport)
 
     def send(self, NAME, VAL, TYPE='', UNITS='', SLOPE='both',
-             TMAX=60, DMAX=0, GROUP=""):
+             TMAX=60, DMAX=0, GROUP="", SPOOF=""):
         if SLOPE not in slope_str2int:
             raise ValueError("Slope must be one of: " + str(self.slope.keys()))
         if TYPE not in self.type:
@@ -84,24 +87,30 @@ class Gmetric:
         if len(NAME) == 0:
             raise ValueError("Name must be non-empty")
 
-        ( meta_msg, data_msg )  = gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP)
+        ( meta_msg, data_msg )  = gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF)
         # print msg
-        
+
         self.socket.sendto(meta_msg, self.hostport)
         self.socket.sendto(data_msg, self.hostport)
 
-def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP):
+def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
     """
     Arguments are in all upper-case to match XML
     """
     packer = Packer()
     HOSTNAME="test"
-    SPOOF=0
+    if SPOOF == "":
+        SPOOFENABLED=0
+    else :
+        SPOOFENABLED=1
     # Meta data about a metric
     packer.pack_int(128)
-    packer.pack_string(HOSTNAME)
+    if SPOOFENABLED == 1:
+        packer.pack_string(SPOOF)
+    else:
+        packer.pack_string(HOSTNAME)
     packer.pack_string(NAME)
-    packer.pack_int(SPOOF)
+    packer.pack_int(SPOOFENABLED)
     packer.pack_string(TYPE)
     packer.pack_string(NAME)
     packer.pack_string(UNITS)
@@ -115,13 +124,16 @@ def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP):
         packer.pack_int(1)
         packer.pack_string("GROUP")
         packer.pack_string(GROUP)
-        
+
     # Actual data sent in a separate packet
     data = Packer()
     data.pack_int(128+5)
-    data.pack_string(HOSTNAME)
+    if SPOOFENABLED == 1:
+        data.pack_string(SPOOF)
+    else:
+        data.pack_string(HOSTNAME)
     data.pack_string(NAME)
-    data.pack_int(SPOOF)
+    data.pack_int(SPOOFENABLED)
     data.pack_string("%s")
     data.pack_string(str(VAL))
 
@@ -167,8 +179,10 @@ if __name__ == '__main__':
                       help="The lifetime in seconds of this metric, default=0, meaning unlimited")
     parser.add_option("", "--group",  dest="group",  default="",
                       help="Group metric belongs to. If not specified Ganglia will show it as no_group")
+    parser.add_option("", "--spoof",  dest="spoof",  default="",
+                      help="the address to spoof (ip:host). If not specified the metric will not be spoofed")
     (options,args) = parser.parse_args()
 
     g = Gmetric(options.host, options.port, options.protocol)
     g.send(options.name, options.value, options.type, options.units,
-           options.slope, options.tmax, options.dmax, options.group)
+           options.slope, options.tmax, options.dmax, options.group, options.spoof)
