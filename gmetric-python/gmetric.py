@@ -87,7 +87,7 @@ class Gmetric:
         if len(NAME) == 0:
             raise ValueError("Name must be non-empty")
 
-        ( meta_msg, data_msg )  = gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, SPOOF, GROUP)
+        ( meta_msg, data_msg )  = gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF)
         # print msg
 
         self.socket.sendto(meta_msg, self.hostport)
