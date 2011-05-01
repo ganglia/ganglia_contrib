@@ -79,7 +79,7 @@ class Gmetric:
         #self.socket.connect(self.hostport)
 
     def send(self, NAME, VAL, TYPE='', UNITS='', SLOPE='both',
-             TMAX=60, DMAX=0, SPOOF="", GROUP=""):
+             TMAX=60, DMAX=0, GROUP="", SPOOF=""):
         if SLOPE not in slope_str2int:
             raise ValueError("Slope must be one of: " + str(self.slope.keys()))
         if TYPE not in self.type:
