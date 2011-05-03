@@ -294,8 +294,11 @@ class GangliaMetrics(object):
                 try:
                     os.utime(self.cache_lock_path, None)
                 except StandardError:
-                    raise self. StaleCacheLockError('Stale cache lock found at %s' %
-                                                    self.cache_lock_path)
+                    raise self.StaleCacheLockError('Stale cache lock found at %s' %
+                                                   self.cache_lock_path)
+            else:
+                raise self.CacheLockError('Error while creating cache lock at %s: %s' %
+                                         (self.cache_lock_path, e))
 
     def _cache_unlock(self):
         """Remove the cache lock"""
