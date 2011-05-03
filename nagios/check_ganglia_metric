@@ -43,7 +43,7 @@ except ImportError, e:
     sys.exit(2)
 
 
-__version__ = '2011.04.20a'
+__version__ = '2011.05.03'
 
 
 class GangliaMetrics(object):
@@ -87,6 +87,20 @@ class GangliaMetrics(object):
     class CacheWriteError(CacheError):
         """Raised on cache write errors"""
 
+    class CacheLockError(CacheWriteError):
+        """Raised on cache lock errors"""
+
+        def __init__(self, message):
+            """Override log level for these errors"""
+
+            super(GangliaMetrics.CacheLockError, self).__init__(message, 'info')
+
+    class StaleCacheLockError(CacheWriteError):
+        """Raised when stale cache lock is detected"""
+
+    class CacheUnlockError(CacheWriteError):
+        """Raised on cache unlock errors"""
+
     class MetricNotFoundError(Error):
         """Raised when metric host/name is not found"""
 
@@ -94,15 +108,16 @@ class GangliaMetrics(object):
                  cache_ttl, cache_ttl_splay, cache_grace, debug_level):
         """Initialization"""
 
-        self.gmetad_host    = gmetad_host
-        self.gmetad_port    = int(gmetad_port)
-        self.gmetad_timeout = float(gmetad_timeout)
-        self.cache_path     = cache_path
+        self.gmetad_host     = gmetad_host
+        self.gmetad_port     = int(gmetad_port)
+        self.gmetad_timeout  = float(gmetad_timeout)
+        self.cache_path      = cache_path
+        self.cache_lock_path = '%s.lock' % cache_path
 
-        splay_secs          = float(cache_ttl) * float(cache_ttl_splay) / 2
-        self.cache_ttl      = random.uniform(float(cache_ttl) - splay_secs,
+        splay_secs           = float(cache_ttl) * float(cache_ttl_splay) / 2
+        self.cache_ttl       = random.uniform(float(cache_ttl) - splay_secs,
                                              float(cache_ttl) + splay_secs)
-        self.cache_grace    = cache_grace
+        self.cache_grace     = float(cache_grace)
 
         # Configure debug logging
         self.log = logging.getLogger(__name__)
@@ -119,7 +134,6 @@ class GangliaMetrics(object):
         else:
             self.log.addHandler(logging.FileHandler(os.devnull))
 
-
     def get_value(self, metric_host, metric_name):
         """Return a value for the specified metric host/name"""
 
@@ -127,11 +141,17 @@ class GangliaMetrics(object):
             metrics = self._cache_read()
         except self.CacheError:
             try:
-                metrics = self._gmetad_parse(self._gmetad_read())
-                self._cache_write(metrics)
-            except self.GmetadNetworkError:
+                self._cache_lock()
+                try:
+                    metrics = self._gmetad_parse(self._gmetad_read())
+                    self._cache_write(metrics)
+                finally:
+                    self._cache_unlock()
+            except (self.CacheLockError, self.GmetadError):
                 self.log.info('Attempting to force read from cache')
                 metrics = self._cache_read(ignore_expiration=True)
+
+        self.log.info('Found metrics for %d hosts', len(metrics))
 
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug("Dumping metrics\n%s", pprint.pformat(metrics))
@@ -156,31 +176,29 @@ class GangliaMetrics(object):
             raise self.GmetadNetworkError('Error while creating socket: %s' % e)
 
         try:
-            try:
-                sock.settimeout(self.gmetad_timeout)
-                sock.connect((self.gmetad_host, self.gmetad_port))
-            except StandardError, e:
-                raise self.GmetadNetworkError('Error while connecting to gmetad at %s:%d: %s' %
-                                             (self.gmetad_host, self.gmetad_port, e))
+            sock.settimeout(self.gmetad_timeout)
+            sock.connect((self.gmetad_host, self.gmetad_port))
+        except StandardError, e:
+            raise self.GmetadNetworkError('Error while connecting to gmetad at %s:%d: %s' %
+                                         (self.gmetad_host, self.gmetad_port, e))
 
-            self.log.info('Reading gmetad XML')
+        self.log.info('Reading gmetad XML')
 
-            try:
-                xml_data = ''
+        try:
+            xml_data = ''
+            buffer = sock.recv(4096)
+            while len(buffer):
+                xml_data += buffer
                 buffer = sock.recv(4096)
-                while len(buffer):
-                    xml_data += buffer
-                    buffer = sock.recv(4096)
-                msg = 'Read %s bytes from gmetad' % len(xml_data)
-                if len(xml_data):
-                    self.log.info(msg)
-                else:
-                    raise self.GmetadNoDataError('%s (Hint: Check trusted_hosts and/or all_trusted in gmetad.conf)' % msg)
-            except StandardError, e:
-                raise self.GmetadNetworkError('Error while reading gmetad XML from %s:%d: %s' %
-                                             (self.gmetad_host, self.gmetad_port, e))
-        finally:
             sock.close()
+            msg = 'Read %s bytes from gmetad' % len(xml_data)
+            if len(xml_data):
+                self.log.info(msg)
+            else:
+                raise self.GmetadNoDataError('%s (Hint: Check trusted_hosts and/or all_trusted in gmetad.conf)' % msg)
+        except StandardError, e:
+            raise self.GmetadNetworkError('Error while reading gmetad XML from %s:%d: %s' %
+                                         (self.gmetad_host, self.gmetad_port, e))
 
         return xml_data
 
@@ -208,8 +226,6 @@ class GangliaMetrics(object):
         except Exception, e:
             raise self.GmetadXmlError('Error while parsing gmetad XML: %s' % e)
 
-        self.log.info('Found metrics for %d hosts', len(metrics))
-
         return metrics
 
     def _cache_read(self, ignore_expiration=False):
@@ -223,7 +239,7 @@ class GangliaMetrics(object):
             raise self.CacheReadError('Error while checking age of cache at %s: %s' %
                                      (self.cache_path, e))
 
-        if cache_age - self.cache_ttl > self.cache_grace or \
+        if cache_age > self.cache_ttl + self.cache_grace or \
            (cache_age > self.cache_ttl and not ignore_expiration):
             raise self.CacheExpiredError('Cache is expired by %f seconds' %
                                         (cache_age - self.cache_ttl))
@@ -237,8 +253,6 @@ class GangliaMetrics(object):
             except StandardError, e:
                 raise self.CacheReadError('Error while reading from cache at %s: %s' %
                                          (self.cache_path, e))
-
-        self.log.info('Found metrics for %d hosts', len(metrics))
 
         return metrics
 
@@ -261,6 +275,40 @@ class GangliaMetrics(object):
             os.unlink(cache_tmp[1])
             raise self.CacheWriteError('Error while updating cache at %s: %s' %
                                       (self.cache_path, e))
+
+    def _cache_lock(self):
+        """Create the cache lock"""
+
+        self.log.info('Creating cache lock at %s', self.cache_lock_path)
+
+        try:
+            os.mkdir(self.cache_lock_path)
+        except StandardError, e:
+            try:
+                cache_lock_age = time.time() - os.path.getmtime(self.cache_lock_path)
+            except StandardError, e:
+                raise self.CacheLockError('Error while checking age of cache lock at %s: %s' %
+                                         (self.cache_lock_path, e))
+
+            if cache_lock_age > self.cache_ttl + self.cache_grace:
+                try:
+                    os.utime(self.cache_lock_path, None)
+                except StandardError:
+                    raise self. StaleCacheLockError('Stale cache lock found at %s' %
+                                                    self.cache_lock_path)
+
+    def _cache_unlock(self):
+        """Remove the cache lock"""
+
+        self.log.info('Removing cache lock at %s', self.cache_lock_path)
+
+        try:
+            os.rmdir(self.cache_lock_path)
+        except StandardError, e:
+            if os.path.exists(self.cache_lock_path):
+                raise self.CacheUnlockError('Error while removing cache lock at %s: %s' %
+                                           (self.cache_lock_path, e))
+
 
 if __name__ == '__main__':
 
