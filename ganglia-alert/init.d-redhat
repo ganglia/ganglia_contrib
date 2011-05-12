@@ -1,0 +1,44 @@
+#!/bin/sh
+# chkconfig: 2345 92 8
+#
+# pbsmom: This script will start and stop the PBS mom
+# description: PBS is a batch versitle batch system for SMPs and clusters
+
+. /etc/init.d/functions
+
+DAEMON=ganglia-alert
+
+case "$1" in
+  start)
+        echo -n "Starting ganglia-alert: "
+        daemon $DAEMON -d
+        RETVAL=$?
+        [ $RETVAL -eq 0 ] && touch /var/lock/subsys/$DAEMON || RETVAL=1
+        echo
+  ;;
+  stop)
+        echo -n "Stopping ganglia-alert: "
+        killproc $DAEMON
+        RETVAL=$?
+        [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/$DAEMON
+        echo
+  ;;
+  status)
+        status $DAEMON
+        RETVAL=$?
+  ;;
+  report)
+        $DAEMON -r
+        RETVAL=$?
+  ;;
+  restart)
+        echo "Restarting ganglia-lert: "
+        $0 stop
+        $0 start
+  ;;
+  *)
+        echo "Usage: $0 {start|stop|status|restart}"
+        exit 1
+esac
+
+exit $RETVAL
