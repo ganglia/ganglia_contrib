@@ -29,20 +29,24 @@ begin
 
   grid=nil
   doc.elements.each("GANGLIA_XML/GRID") { |element| 
-   grid=element.attributes["NAME"].gsub(/\W/, "_")
+   grid=element.attributes["NAME"]
   }
   puts "GRID: #{grid}\n" if Debug
 
   cluster=nil
   doc.elements.each("GANGLIA_XML/GRID/CLUSTER") { |element| 
-   cluster=element.attributes["NAME"].gsub(/\W/, "_")
+   cluster=element.attributes["NAME"] 
     puts "CLUSTER: #{cluster}\n" if Debug
 
     doc.elements.each("GANGLIA_XML/GRID[@NAME='#{grid}']/CLUSTER[@NAME='#{cluster}']/HOST") { |host|
-    # Set metric prefix to the host name. Graphite uses dots to separate subtrees
-    # therefore we have to change dots in hostnames to _
       metric_prefix=host.attributes["NAME"].gsub(".", "_")
       host.elements.each("METRIC") { |metric|
+        # Set metric prefix to the host name. Graphite uses dots to separate subtrees
+        # therefore we have to change dots in hostnames to _
+        # Do substitution of whitespace after XML parsing to avoid problems with 
+        # pre-exiting whitespace in GRID / CLUSTER names in XML. 
+        grid.gsub!(/\W/, "_")
+        cluster.gsub!(/\W/, "_")
         if metric.attributes["TYPE"] != "string"                     
           graphite.puts "#{grid}.#{cluster}.#{metric_prefix}.#{metric.attributes["NAME"]} #{metric.attributes["VAL"]} #{now}\n" if !Debug
           puts "#{grid}.#{cluster}.#{metric_prefix}.#{metric.attributes["NAME"]} #{metric.attributes["VAL"]} #{now}\n" if Debug
