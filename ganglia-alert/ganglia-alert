@@ -10,7 +10,7 @@ use POSIX ":sys_wait_h";
 
 use Pod::Usage;
 
-our $VERSION = '0.9.' . [qw$Revision: 19 $]->[1];
+our $VERSION = '0.9.' . [qw$Revision: 24 $]->[1];
 
 # in-memory stats
 my %history;				# history for average/stdev
@@ -77,11 +77,21 @@ if ($opt{daemon}) {
 		print P $$; 
 		close P;					# save pid
 
+		open STDIN,  '</dev/null';
+		open STDOUT, ">/dev/null";
+		if ($conf{log_file} && !($conf{log_file} eq '-')) {
+			open STDERR, '>&STDOUT';
+		}
+		chdir '/';
+		POSIX::setsid();
+
 		# OK, startup happened, from now on, all messages are reported via xlog... and are nonfatal
 		xlog("info", "starting daemon");
 		my $int;
+		# todo... change to a simple UDP protocol?  signals can be wonky
 		$SIG{INT}=sub {$int=1;};			# interrupt handler
-		$SIG{HUP}=sub {$alertm=1;};			# sig-HUP forces mail with current state
+		$SIG{TERM} = $SIG{INT};
+		$SIG{HUP}=sub {$alertm=1;};			# sig-HUP forces mail with current state todo: maybe you just want it in a file
 		while(!$int) {
 			eval {dometa()};
 			eval {msgq()};
@@ -178,6 +188,8 @@ sub safe_from_hdat {
                         ${$safe->varglob($metric . "_stdev")} = 0;
                 }
         }
+	${$safe->varglob("reported")}=$hdat->{reported};
+	${$safe->varglob("tn")}=$hdat->{tn};
 	return $safe;
 }
 
@@ -341,7 +353,7 @@ sub _readconf {
 my $save_log;
 
 sub readconf {
-	my $modtime = (stat($opt{conf}))[9];
+	my $modtime = (stat($opt{conf}))[9];			# todo, maybe sig(HUP) here...instead of polling stat all day?  but I like it this way
 	return if $readlast == $modtime;
 	return if !open IN, $opt{conf}; close IN;
 
@@ -387,6 +399,14 @@ sub readconf {
 					$conf{email_to} = '';
 				}
 			}
+		}
+	}
+
+	
+	# remove alerts that are left-over from previous config
+	for my $k (keys %alcnt) {
+		if (!$alconf{$k}) {
+			delete $alcnt{$k};
 		}
 	}
 
@@ -484,20 +504,24 @@ sub msgq {
 			$alertm = 0;
 		} else {
 			my $ok = 0;
-			my $from = $conf{email_from} ? $conf{email_from} : ("$uid\@" . ($ENV{HOST} ? $ENV{HOST} : 'localhost'));
-			if ($conf{sendmail_path}) {
-				$ok = open(SM, "|$conf{sendmail_path} -f $from -t $addr");
-				$ok = $ok && print(SM "From: $from\nTo: $addr\nSubject: $subject\n\n$rpt");
-				$ok = $ok && close(SM);
+			if ($conf{email_to}) {
+				my $from = $conf{email_from} ? $conf{email_from} : ("$uid\@" . ($ENV{HOST} ? $ENV{HOST} : 'localhost'));
+				if ($conf{sendmail_path}) {
+					$ok = open(SM, "|$conf{sendmail_path} -f $from -t $addr");
+					$ok = $ok && print(SM "From: $from\nTo: $addr\nSubject: $subject\n\n$rpt");
+					$ok = $ok && close(SM);
+				} else {
+					my $msg = MIME::Lite->new(
+						From     => $from,
+						To       => $addr,
+						Subject  => $subject,
+						Type     => 'text/plain',
+						Data     => $rpt
+					);
+					$ok = $msg->send;
+				}
 			} else {
-				my $msg = MIME::Lite->new(
-					From     => $from,
-					To       => $addr,
-					Subject  => $subject,
-					Type     => 'text/plain',
-					Data     => $rpt
-				);
-				$ok = $msg->send;
+				$ok = 1;
 			}
 			if ($ok) {
 				$alertm = 0;	
