@@ -1,3 +1,8 @@
+# Drew Stephens <drew@dinomite.net>
+# Copyright 2011, Clearspring, Inc.
+# 
+# This is free software; you can redistribute it and/or modify it under
+# the same terms as the Perl 5 programming language system itself.
 use warnings;
 use strict;
 use v5.10;
