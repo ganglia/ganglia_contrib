@@ -19,6 +19,7 @@ my $hosts = ['.'];
 
 my $xml = getXMLFromSocket();
 
+# Socket for sending to Graphite
 my $graphiteSocket = IO::Socket::INET->new(
         PeerHost    => $graphiteHost,
         PeerPort    => $graphitePort,
@@ -31,6 +32,7 @@ my $parser = XML::SAX::ParserFactory->parser(
                 ),
             );
 $parser->parse_string($xml);
+$graphiteSocket->close();
 
 sub getXMLFromSocket {
     my $socket = IO::Socket::INET->new(
@@ -38,16 +40,17 @@ sub getXMLFromSocket {
         PeerPort    => $gangliaPort,
     ) or die "Couldn't connect to " . $gangliaHost . ':' . $gangliaPort . " - $!\n";
 
-    my $xml;
-    my $part;
-    my $recvSize = 1048576;
+    my $xml = '';
+    my $part = '';
+    my $recvSize = 1024;
     $socket->recv($part, $recvSize);
 
-    my $limit = 100000;
-    while ($part ne '' && $limit > 0) {
-        $socket->recv($part, $recvSize);
+    # Accumulate the XML file from the socket
+    my $chunk = 0;
+    while ($part ne '' && $chunk < 1_000_000) {
         $xml .= $part;
-        $limit--;
+        $socket->recv($part, $recvSize);
+        $chunk++
     }
 
     return $xml;
