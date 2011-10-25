@@ -1,0 +1,32 @@
+2011-10-25 Drew Stephens <drew@dinomite.net>
+Copyright 2011, Clearspring, Inc.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+USAGE
+
+This pulls the XML file from gmetad (localhost:8651 by default) and pumps
+it into Graphite (localhost:2023 the carbon-aggregator port by default).
+
+I run it as a minutely cronjob:
+
+    * * * * * root cd /home/web/gang2graph; perl gang2graph.pl
+
+With 160 hosts and 38,000 metrics the elapsed time is less than 3 seconds
+on a 4100 series AMD Opteron, but it is hobbled by Graphite's disk writing.
+For this reason, gang2graph support specify a set of hosts to send to
+Graphite, ignoring the rest.  Simply set the $host variable in gang2graph.pl
+to a set of hosts to copy and only those will be copied.  The checking is a
+regex, so subsets of hostnames works.  To copy metrics from this set of hosts:
+
+    apb00.clearspring.com
+    apb01.clearspring.com
+    apw00.clearspring.com
+    apw01.clearspring.com
+
+but exclude apm*, adm*, etc. I use this $hosts:
+
+    ['apb', 'apw']
+
+Feel free to email me with questions.
