@@ -14,6 +14,8 @@ our @ISA = ('XML::SAX::ExpatXS');
 use Carp qw/croak/;
 use IO::Socket::INET;
 
+my $debug = 0;
+
 sub new {
     my $class = shift;
     my %params = @_;
@@ -70,34 +72,37 @@ sub end_element {
         # Reset the skipHost flag
         $self->{skipHost} = 0 if ($data->{LocalName} eq 'HOST');
     } elsif ($data->{LocalName} eq 'GRID') {
-        #print "Ending grid " . $self->{grid} . "\n";
+        print "Ending grid " . $self->{grid} . "\n" if ($debug);
     } elsif ($data->{LocalName} eq 'CLUSTER') {
-        #print "Ending cluster " . $self->{cluster} . "\n";
+        print "  Ending cluster " . $self->{cluster} . "\n" if ($debug);
     }
 }
 
 sub end_document {
     my ($self, $data) = @_;
     $self->{socket}->close();
-    #print "Processed " . $self->{metrics} . " metrics\n";
+    print "Processed " . $self->{metrics} . " metrics\n" if ($debug);
 }
 
 sub _handleGrid {
     my ($self, $data) = @_;
     $self->{grid} = $data->{Attributes}->{'{}NAME'}->{Value};
-    #print "Starting grid " . $self->{grid} . "\n";
+    $self->{grid} =~ s/ /_/g;
+    print "Starting grid " . $self->{grid} . "\n" if ($debug);
 }
 
 sub _handleCluster {
     my ($self, $data) = @_;
     $self->{cluster} = $data->{Attributes}->{'{}NAME'}->{Value};
-    #print "Starting cluster " . $self->{cluster} . "\n";
+    $self->{cluster} =~ s/ /_/g;
+    print "  Starting cluster " . $self->{cluster} . "\n" if ($debug);
 }
 
 sub _handleHost {
     my ($self, $data) = @_;
     $self->{host} = $data->{Attributes}->{'{}NAME'}->{Value};
-    #print "Host " . $self->{host} . "\n";
+    $self->{host} =~ s/ /_/g;
+    print "    Host " . $self->{host} . "\n" if ($debug);
 }
 
 sub _handleMetric {
@@ -105,10 +110,16 @@ sub _handleMetric {
     my $name = $data->{Attributes}->{'{}NAME'}->{Value};
     my $val = $data->{Attributes}->{'{}VAL'}->{Value};
 
+    # Graphite doesn't do non-numeric things
+    if ($val !~ /^[0-9.]*$/) {
+        return;
+    }
+
     my $graphiteString = $self->{grid} . '.' . $self->{cluster} . '.' .
             $self->{host} . '.' . "$name $val " . $self->{now} . "\n";
     my $socket = $self->{socket};
     print $socket $graphiteString;
+    print "        $graphiteString" if ($debug > 1);
 
     $self->{metrics}++;
 }
