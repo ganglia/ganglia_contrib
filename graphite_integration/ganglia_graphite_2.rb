@@ -3,7 +3,7 @@
 #################################################################################
 # Parse Ganglia XML stream and send metrics to Graphite
 # License: Same as Ganglia
-# Author: Vladimir Vuksan
+# Author: Gilles Devaux
 # Modified from script written by: Vladimir Vuksan
 # at https://github.com/ganglia/ganglia_contrib/blob/master/graphite_integration/ganglia_graphite.rb
 #
