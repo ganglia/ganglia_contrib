@@ -7,7 +7,7 @@
 # Modified from script written by: Vladimir Vuksan
 # at https://github.com/ganglia/ganglia_contrib/blob/master/graphite_integration/ganglia_graphite.rb
 #
-# IMPORTANT: Since carbon does not understand COUNTER types. All the COUNTER/DERIVE data source do not work
+# WARNING: Don't be surprised Carbon does not understand COUNTER type. You have to apply a derivative function in the UI.
 #
 #################################################################################
 require "rubygems"
