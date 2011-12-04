@@ -177,7 +177,7 @@ class CarbonPlugin(GmetadPlugin):
                         self._carbonEscape(hostNode.getAttr('name')),
                         metricNode.getAttr('name'))
                         ), # metric name
-                    int(hostNode.getAttr('REPORTED')), float(metricNode.getAttr('VAL')))
+                    int(hostNode.getAttr('REPORTED')) + int(metricNode.getAttr('TN')), float(metricNode.getAttr('VAL')))
                     for hostNode in clusterNode
                     for metricNode in hostNode
                 if metricNode.getAttr('type') not in ('string', 'timestamp' )
