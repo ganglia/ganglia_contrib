@@ -20,6 +20,7 @@ import logging
 import socket
 import pickle
 import struct
+import string
 
 from Gmetad.gmetad_plugin import GmetadPlugin
 from Gmetad.gmetad_config import getConfig, GmetadConfig
@@ -36,6 +37,7 @@ class CarbonPlugin(GmetadPlugin):
     
     _strucFormat = '!I'
     MAX_METRICS_PER_OP = 20
+    _tr_table = string.maketrans(" .", "__")
 
     def __init__(self, cfgid):
         logging.debug("Initializing carbon-writer plugin")
@@ -77,6 +79,11 @@ class CarbonPlugin(GmetadPlugin):
             self.sendMetrics = self._sendTextMetrics
         else:
             raise Exception("Unknown protocol type %s" % protocol)
+
+    @classmethod
+    def _carbonEscape(cls, s):
+        if type(s) is not str: str(s)
+        return s.translate(cls._tr_table)
 
     def _connectCarbon(self):
         self._closeConnection()
@@ -166,7 +173,9 @@ class CarbonPlugin(GmetadPlugin):
         # Update metrics for each host in the cluster
         self.sendMetrics([
                 (".".join(
-                    ("ganglia", clusterNode.getAttr('name') ,hostNode.getAttr('name') ,metricNode.getAttr('name'))
+                    ("ganglia", self._carbonEscape(clusterNode.getAttr('name')),
+                        self._carbonEscape(hostNode.getAttr('name')),
+                        metricNode.getAttr('name'))
                         ), # metric name
                     int(hostNode.getAttr('REPORTED')), float(metricNode.getAttr('VAL')))
                     for hostNode in clusterNode
