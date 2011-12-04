@@ -82,7 +82,7 @@ class CarbonPlugin(GmetadPlugin):
 
     @classmethod
     def _carbonEscape(cls, s):
-        if type(s) is not str: str(s)
+        if type(s) is not str: s = str(s)
         return s.translate(cls._tr_table)
 
     def _connectCarbon(self):
