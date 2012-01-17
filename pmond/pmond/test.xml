@@ -1,0 +1,12 @@
+<GANGLIA_XML VERSION="2.5.7" SOURCE="gmond">
+<HOST name="nickg-macbook.local">
+<METRIC NAME="os_name" SLOPE="zero" VAL="Darwin" TMAX="1200" SOURCE="gmond" UNITS="" DMAX="0" TYPE="string"/>
+<METRIC NAME="machine_type" SLOPE="zero" VAL="i386" TMAX="1200" SOURCE="gmond" UNITS="" DMAX="0" TYPE="string"/>
+<METRIC NAME="cpu_num" SLOPE="zero" VAL="2" TMAX="1200" SOURCE="gmond" UNITS="" DMAX="0" TYPE="uint16"/>
+<METRIC NAME="boottime" SLOPE="zero" VAL="1228711734" TMAX="1200" SOURCE="gmond" UNITS="KB" DMAX="0" TYPE="uint32"/>
+<METRIC NAME="mem_total" SLOPE="zero" VAL="2097152" TMAX="1200" SOURCE="gmond" UNITS="KB" DMAX="0" TYPE="uint32"/>
+<METRIC NAME="os_release" SLOPE="zero" VAL="9.5.0" TMAX="1200" SOURCE="gmond" UNITS="" DMAX="0" TYPE="string"/>
+<METRIC NAME="cpu_speed" SLOPE="zero" VAL="2200" TMAX="1200" SOURCE="gmond" UNITS="MHz" DMAX="0" TYPE="uint32"/>
+
+</HOST>
+</GANGLIA_XML>
