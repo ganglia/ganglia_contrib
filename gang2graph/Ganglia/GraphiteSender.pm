@@ -34,6 +34,7 @@ sub new {
         now     => time,
         socket  => $params{socket},
         include_hosts   => defined $params{include_hosts} ? $params{include_hosts} : '.',
+        exclude_hosts   => defined $params{exclude_hosts} ? $params{exclude_hosts} : '',
         metrics => 0,
     };
 
@@ -51,12 +52,12 @@ sub start_element {
         $self->_handleMetric($data);
     } elsif ($data->{LocalName} eq 'HOST') {
         # Skip hosts that aren't in the includeHosts list
-        unless (grep {$data->{Attributes}->{'{}NAME'}->{Value} =~ /$_/} @{$self->{includeHosts}}) {
+        unless (grep {$data->{Attributes}->{'{}NAME'}->{Value} =~ /$_/} @{$self->{include_hosts}}) {
             $self->{skipHost} = 1;
             return;
         }
         # Skip hosts that are in the excludeHosts list
-        if (grep {$data->{Attributes}->{'{}NAME'}->{Value} =~ /$_/} @{$self->{excludeHosts}}) {
+        if (grep {$data->{Attributes}->{'{}NAME'}->{Value} =~ /$_/} @{$self->{exclude_hosts}}) {
             $self->{skipHost} = 1;
             return;
         }
