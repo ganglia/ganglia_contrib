@@ -25,7 +25,8 @@ my $include_hosts = ['.'];
 #$include_hosts = ['apw', 'apb', 'aab2[0-9a-d]', 'localhost'];
 
 # Set of hostname regexes that will be excluded from sending
-my $exclude_hosts = ['apw00', 'apw01', 'apw02'];
+my $exclude_hosts = [];
+#my $exclude_hosts = ['apw00', 'apw01', 'apw02'];
 
 my $xml = getXMLFromSocket();
 
