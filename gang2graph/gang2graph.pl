@@ -19,8 +19,14 @@ my $gangliaHost = 'localhost';
 my $gangliaPort = 8651;
 my $graphiteHost = 'localhost';
 my $graphitePort =  2023;
+
 # Set of hostname regexes that will be sent from Ganglia to Graphite
-my $hosts = ['.'];
+my $include_hosts = ['.'];
+#$include_hosts = ['apw', 'apb', 'aab2[0-9a-d]', 'localhost'];
+
+# Set of hostname regexes that will be excluded from sending
+my $exclude_hosts = [];
+#my $exclude_hosts = ['apw00', 'apw01', 'apw02'];
 
 my $xml = getXMLFromSocket();
 
@@ -33,7 +39,8 @@ my $graphiteSocket = IO::Socket::INET->new(
 my $parser = XML::SAX::ParserFactory->parser(
                 Handler => Ganglia::GraphiteSender->new(
                     socket  => $graphiteSocket,
-                    hosts   => $hosts,
+                    include_hosts   => $include_hosts,
+                    exclude_hosts   => $exclude_hosts,
                 ),
             );
 $parser->parse_string($xml);
