@@ -1,0 +1,5 @@
+#this uses rvm
+#rvm use jruby
+rvm use 1.8.7
+rvm_gemset_create_on_use_flag=1
+rvm gemset use gmon-ruby

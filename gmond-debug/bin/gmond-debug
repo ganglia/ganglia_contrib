@@ -1,0 +1,114 @@
+#!/usr/bin/env ruby
+
+require 'pp'
+require File.expand_path("../../lib/gmond-debug.rb", __FILE__)
+
+defaults= { :port => 1234,
+            :host => "127.0.0.1",
+            :gmond_host => "127.0.0.1",
+            :gmond_port => 8649,
+            :gmond_interval => 0 ,
+            :zmq_host => "127.0.0.1",
+            :zmq_port => 7777,
+            :verbose => false,
+            :test_zmq => false
+}
+
+# Set defaults
+runner= Dante::Runner.new('gmond-zmq',defaults)
+
+# Set description in the help
+runner.description = "A gmond UDP receiver that pushes things to a 0mq Pub/Sub"
+
+# Set custom options
+runner.with_options do |opts|
+
+  # Gmond options
+  opts.on("--gmond-host [HOST]", String, "hostname/ip address of the gmond to poll") do |gmondhost|
+    options[:gmond_host] = gmondhost
+  end
+  opts.on("--gmond-port [PORT]", Integer, "tcp port of the gmond to poll") do |gmonport|
+    options[:gmond_port] = gmondport
+  end
+  opts.on("--gmond-interval [seconds]", Integer, "interval to poll the gmond, 0 = disable") do |gmondinterval|
+    options[:gmond_interval] = gmondinterval
+  end
+
+  # Zmq options
+  opts.on("--zmq-port [PORT]", Integer, "tcp port of the zmq publisher, 7777 default") do |zmqport|
+    options[:zmq_port] = zmqport
+  end
+  opts.on("--zmq-host [HOST]", String, "hostname/ip address of the zmq publisher") do |zmqhost|
+    options[:zmq_host] = zmqhost
+  end
+
+  opts.on("-v","--verbose", "more verbose output") do |verbose|
+    options[:verbose] = verbose
+  end
+
+  opts.on("-t","--test-zmq", "Starts a test zmq subscriber") do |test_zmq|
+    options[:test_zmq] = test_zmq
+  end
+
+end
+
+# Main execution loop
+runner.execute do |opts|
+
+  puts "With the following options:"
+  pp opts
+
+  # Overriding the trap from dante
+  trap("INT") {
+    puts "Cleanly stopping event machine"
+    EM.stop()
+  }
+
+  # opts: host, pid_path, port, daemonize, user, group
+  begin
+    EventMachine::run {
+
+      # Process our settings
+      host,port = opts[:host],opts[:port]
+      gmond_host,gmond_port = opts[:gmond_host],opts[:gmond_port]
+      gmond_interval = opts[:gmond_interval]
+      #zmq_host,zmq_port = opts[:zmq_host],opts[:zmq_port]
+      verbose=opts[:verbose]
+      #test_zmq=opts[:test_zmq]
+
+      # Start our ZMQ Publisher
+      #zmq_ctx = EM::ZeroMQ::Context.new(1)
+      #zmq_push_socket = zmq_ctx.bind( ZMQ::PUB, "tcp://#{zmq_host}:#{zmq_port}")
+
+      # Start our own Gmond UDP listener
+      EventMachine::open_datagram_socket(host,port,LocalGmondHandler) do |conn|
+        #conn.zmq_push_socket = zmq_push_socket
+        conn.verbose = verbose
+      end
+
+      # Start poller for another gmond instance
+      # -> if an interval > 0
+      if gmond_interval > 0
+        EventMachine::add_periodic_timer( gmond_interval ) {
+          EventMachine::connect gmond_host, gmond_port, RemoteGmondHandler do |conn|
+            #conn.zmq_push_socket = zmq_push_socket
+            conn.verbose = verbose
+          end
+        }
+      end
+
+      # Start a keep alive output
+      if verbose
+        EventMachine::add_periodic_timer( 5 ) {
+          $stderr.write "*"
+        }
+      end
+
+      puts "Now accepting gmond udp connections on address #{host}, port #{port}..."
+    }
+  rescue Interrupt
+    # We never get here
+    puts "Performing a clean shutdown"
+  end
+
+end
