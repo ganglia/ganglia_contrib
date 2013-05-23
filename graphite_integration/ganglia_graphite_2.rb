@@ -60,7 +60,7 @@ begin
 
           group = metric.at("EXTRA_DATA/EXTRA_ELEMENT[@NAME=GROUP]")
           if group
-            group_name = group['VAL']
+            group_name = group['VAL'].gsub(/\W/, "_")
           else
             #Trick for gmetric < 3.2 (do not have --group option)
             #Name your metric group_metric_name
