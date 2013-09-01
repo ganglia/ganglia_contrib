@@ -32,6 +32,12 @@
 #   made gmetrix xdr writers _and readers_
 #   Now this only works for gmond 2.X packets, not tested with 3.X
 #
+# Version 3.0 - 09-Jan-2011 Author: Vladimir Vuksan
+#   Made it work with the Ganglia 3.1 data format
+#
+# Version 3.1 - 30-Apr-2011 Author: Adam Tygart
+#   Added Spoofing support
+
 
 from xdrlib import Packer, Unpacker
 import socket
@@ -49,71 +55,6 @@ slope_int2str = {0: 'zero',
                  3: 'both',
                  4: 'unspecified'}
 
-def gmetric_value(NAME, VAL):
-    packer = Packer()
-    packer.pack_int(128+5)  # string
-    packer.pack_string('nickg-macbook.local')
-    packer.pack_string(NAME)
-    packer.pack_bool(False)
-    packer.pack_string('%s')
-    packer.pack_string(VAL)
-    return packer.get_buffer()
-
-def gmetric_meta(NAME, TYPE, UNITS, SLOPE, TMAX, DMAX, EXTRAS=None):
-    """
-    Arguments are in all upper-case to match XML
-    """
-    packer = Packer()
-    packer.pack_int(128)  # "gmetadata_full"
-    packer.pack_string('nickg-macbook.local')
-    packer.pack_string(NAME)
-    packer.pack_bool(False)
-
-    packer.pack_string(TYPE)
-    packer.pack_string(NAME)
-    packer.pack_string(UNITS)
-    packer.pack_int(slope_str2int[SLOPE]) # map slope string to int
-    packer.pack_uint(int(TMAX))
-    packer.pack_uint(int(DMAX))
-    if EXTRAS is None:
-        packer.pack_uint(0)
-    else:
-        packer.pack_uint(len(EXTRAS))
-        for k,v in EXTRAS.iteritems():
-            packer.pack_string(k)
-            packer.pack_string(v)
-
-    return packer.get_buffer()
-
-def gmetric_read(msg):
-    unpacker = Unpacker(msg)
-    values = dict()
-    unpacker.unpack_int()
-    values['TYPE'] = unpacker.unpack_string()
-    values['NAME'] = unpacker.unpack_string()
-    values['VAL'] = unpacker.unpack_string()
-    values['UNITS'] = unpacker.unpack_string()
-    values['SLOPE'] = slope_int2str[unpacker.unpack_int()]
-    values['TMAX'] = unpacker.unpack_uint()
-    values['DMAX'] = unpacker.unpack_uint()
-    unpacker.done()
-    return values
-
-# I'm sure there is a built-in somehwere
-#  but this seems to work for parsing a command line arg
-def str2bool(s):
-    if s == True or s == '1' or s == 1:
-        return True
-    if s == False or s == '0' or s == 0:
-        return False
-    try:
-        s = s.lower()
-        if s == 'true' or s == 'on' or s == 'yes' or s == 'y' or s == 't':
-            return true
-    except:
-        pass
-
-    return false
 
 class Gmetric:
     """
@@ -138,24 +79,80 @@ class Gmetric:
         #self.socket.connect(self.hostport)
 
     def send(self, NAME, VAL, TYPE='', UNITS='', SLOPE='both',
-             TMAX=60, DMAX=0, sendmeta=True, sendvalue=True):
+             TMAX=60, DMAX=0, GROUP="", SPOOF=""):
         if SLOPE not in slope_str2int:
-            raise ValueError("Got '%s' for slope, but must be one of: %s" % (SLOPE, str(slope_str2int.keys())))
+            raise ValueError("Slope must be one of: " + str(self.slope.keys()))
         if TYPE not in self.type:
             raise ValueError("Type must be one of: " + str(self.type))
         if len(NAME) == 0:
             raise ValueError("Name must be non-empty")
 
-        ok = True
-        if sendmeta:
-            msg = gmetric_meta(NAME, TYPE, UNITS, SLOPE, TMAX, DMAX)
-            ok &= self.socket.sendto(msg, self.hostport)
-        if sendvalue:
-            msg = gmetric_value(NAME, VAL)
-            ok &= self.socket.sendto(msg, self.hostport)
+        ( meta_msg, data_msg )  = gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF)
+        # print msg
 
-        # if both ok, then true, else false
-        return ok
+        self.socket.sendto(meta_msg, self.hostport)
+        self.socket.sendto(data_msg, self.hostport)
+
+def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
+    """
+    Arguments are in all upper-case to match XML
+    """
+    packer = Packer()
+    HOSTNAME="test"
+    if SPOOF == "":
+        SPOOFENABLED=0
+    else :
+        SPOOFENABLED=1
+    # Meta data about a metric
+    packer.pack_int(128)
+    if SPOOFENABLED == 1:
+        packer.pack_string(SPOOF)
+    else:
+        packer.pack_string(HOSTNAME)
+    packer.pack_string(NAME)
+    packer.pack_int(SPOOFENABLED)
+    packer.pack_string(TYPE)
+    packer.pack_string(NAME)
+    packer.pack_string(UNITS)
+    packer.pack_int(slope_str2int[SLOPE]) # map slope string to int
+    packer.pack_uint(int(TMAX))
+    packer.pack_uint(int(DMAX))
+    # Magic number. Indicates number of entries to follow. Put in 1 for GROUP
+    if GROUP == "":
+        packer.pack_int(0)
+    else:
+        packer.pack_int(1)
+        packer.pack_string("GROUP")
+        packer.pack_string(GROUP)
+
+    # Actual data sent in a separate packet
+    data = Packer()
+    data.pack_int(128+5)
+    if SPOOFENABLED == 1:
+        data.pack_string(SPOOF)
+    else:
+        data.pack_string(HOSTNAME)
+    data.pack_string(NAME)
+    data.pack_int(SPOOFENABLED)
+    data.pack_string("%s")
+    data.pack_string(str(VAL))
+
+    return ( packer.get_buffer() ,  data.get_buffer() )
+
+def gmetric_read(msg):
+    unpacker = Unpacker(msg)
+    values = dict()
+    unpacker.unpack_int()
+    values['TYPE'] = unpacker.unpack_string()
+    values['NAME'] = unpacker.unpack_string()
+    values['VAL'] = unpacker.unpack_string()
+    values['UNITS'] = unpacker.unpack_string()
+    values['SLOPE'] = slope_int2str[unpacker.unpack_int()]
+    values['TMAX'] = unpacker.unpack_uint()
+    values['DMAX'] = unpacker.unpack_uint()
+    unpacker.done()
+    return values
+
 
 if __name__ == '__main__':
     import optparse
@@ -163,9 +160,9 @@ if __name__ == '__main__':
     parser.add_option("", "--protocol", dest="protocol", default="udp",
                       help="The gmetric internet protocol, either udp or multicast, default udp")
     parser.add_option("", "--host",  dest="host",  default="127.0.0.1",
-                      help="The gmond host to recieve the data")
+                      help="GMond aggregator hostname to send data to")
     parser.add_option("", "--port",  dest="port",  default="8649",
-                      help="The gmond port to recieve the data")
+                      help="GMond aggregator port to send data to")
     parser.add_option("", "--name",  dest="name",  default="",
                       help="The name of the metric")
     parser.add_option("", "--value", dest="value", default="",
@@ -175,22 +172,17 @@ if __name__ == '__main__':
     parser.add_option("", "--slope", dest="slope", default="both",
                       help="The sign of the derivative of the value over time, one of zero, positive, negative, both, default both")
     parser.add_option("", "--type",  dest="type",  default="",
-                      help="The value data type, one of string, int8, uint8, int16, uint16, int32, uint32, float, double, timestamp")
+                      help="The value data type, one of string, int8, uint8, int16, uint16, int32, uint32, float, double")
     parser.add_option("", "--tmax",  dest="tmax",  default="60",
                       help="The maximum time in seconds between gmetric calls, default 60")
     parser.add_option("", "--dmax",  dest="dmax",  default="0",
                       help="The lifetime in seconds of this metric, default=0, meaning unlimited")
-    parser.add_option("", "--sendmeta",  dest="sendmeta",  default=True,
-                      help="Send metadata message, true/false")
-    parser.add_option("", "--sendvalue",  dest="sendvalue",  default=True,
-                      help="Send value message true/false")
-
+    parser.add_option("", "--group",  dest="group",  default="",
+                      help="Group metric belongs to. If not specified Ganglia will show it as no_group")
+    parser.add_option("", "--spoof",  dest="spoof",  default="",
+                      help="the address to spoof (ip:host). If not specified the metric will not be spoofed")
     (options,args) = parser.parse_args()
-
 
     g = Gmetric(options.host, options.port, options.protocol)
     g.send(options.name, options.value, options.type, options.units,
-           options.slope, options.tmax, options.dmax,
-
-           # has to be a better way!
-           str2bool(options.sendmeta), str2bool(options.sendvalue))
+           options.slope, options.tmax, options.dmax, options.group, options.spoof)
