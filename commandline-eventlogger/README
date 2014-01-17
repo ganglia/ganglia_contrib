@@ -3,4 +3,7 @@ all hosts and whenever we do something we'll log it e.g.
 
 ganglialog set sysctl xxx = 1000
 
-This will show up on a graph for that host
+This will show up on a graph for that host. 
+
+Keep you messages short and avoid using special characters. I'd stick with
+-,.= 
