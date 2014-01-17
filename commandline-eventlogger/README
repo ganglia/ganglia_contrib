@@ -1,0 +1,6 @@
+This is a simple script that adds events to Ganglia. We have it installed on
+all hosts and whenever we do something we'll log it e.g.
+
+ganglialog set sysctl xxx = 1000
+
+This will show up on a graph for that host
