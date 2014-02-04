@@ -208,11 +208,12 @@ class HAProxyLogtailer(object):
                 self.add_metric('haproxy_%s_hits_p' % name, float(len(listener["latency"])) / global_hits * 100)
                 latency = listener["latency"]
                 latency.sort()
-                self.add_metric('haproxy_%s_latency_%s' % (name, 'min'), latency[0])
-                self.add_metric('haproxy_%s_latency_%s' % (name, 'max'), latency[-1])
-                self.add_metric('haproxy_%s_latency_%s' % (name, 'avg'), float(sum(latency)) / len(latency))
-                self.add_metric('haproxy_%s_latency_%s' % (name, '50th'), latency[int(len(latency) * 0.5)])
-                self.add_metric('haproxy_%s_latency_%s' % (name, '90th'), latency[int(len(latency) * 0.9)])
+                # latency is recorded in millisec; convert it to seconds
+                self.add_metric('haproxy_%s_latency_%s' % (name, 'min'), float(latency[0])/1000)
+                self.add_metric('haproxy_%s_latency_%s' % (name, 'max'), float(latency[-1])/1000)
+                self.add_metric('haproxy_%s_latency_%s' % (name, 'avg'), float(sum(latency)) / len(latency)/1000)
+                self.add_metric('haproxy_%s_latency_%s' % (name, '50th'), float(latency[int(len(latency) * 0.5)])/1000)
+                self.add_metric('haproxy_%s_latency_%s' % (name, '90th'), float(latency[int(len(latency) * 0.9)])/1000)
                 feconn = listener["feconn"]
                 feconn.sort()
                 self.add_metric('haproxy_%s_feconn_%s' % (name, 'min'), feconn[0])
@@ -233,7 +234,7 @@ class HAProxyLogtailer(object):
             elif 'hits' in name:
                 results.append(GangliaMetricObject(name, val, units='hps'))
             elif 'latency' in name:
-                results.append(GangliaMetricObject(name, val, units='ms'))
+                results.append(GangliaMetricObject(name, val, units='sec'))
             else:
                 results.append(GangliaMetricObject(name, val, units='connections'))
 
