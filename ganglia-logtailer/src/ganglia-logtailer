@@ -55,7 +55,7 @@ formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 hdlr.setFormatter(formatter)
 logger.addHandler(hdlr)
 logger.setLevel(logging.ERROR)
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
 
 
 ## This provides a lineno() function to make it easy to grab the line
@@ -78,8 +78,9 @@ def submit_stats( parser, missing_as_zero_state_file, missing_as_zero, metric_pr
         if missing_as_zero:
             try:
                 old_metrics = get_metrics_from_state(missing_as_zero_state_file, metric_prefix)
-            except SavedMetricsException:
+            except SavedMetricsException, e:
                 # failed to read saved metrics for some reason. pretend we got an empty answer.
+                logger.debug(e)
                 old_metrics = []
             for m in old_metrics:
                 if m not in metrics:
@@ -88,8 +89,9 @@ def submit_stats( parser, missing_as_zero_state_file, missing_as_zero, metric_pr
             # save metrics for the next run
             try:
                 save_metric_state(metrics, missing_as_zero_state_file, metric_prefix)
-            except SavedMetricsException:
+            except SavedMetricsException, e:
                 # moops.  failed to save.  oh well.
+                logger.debug(e)
                 pass
         for m in metrics:
 
@@ -111,35 +113,25 @@ def save_metric_state(metrics, missing_as_zero_state_file, metric_prefix):
     for m in metrics:
         metrichash = m.dump_dict()
         metriclist.append(metrichash)
-    json_state = json.dumps(metriclist)
     try:
-        fh = open(missing_as_zero_state_file, 'w')
-        fh.write(json_state)
+        with open(missing_as_zero_state_file, 'w') as fh:
+            json.dump(metriclist, fh)
     except Exception, e:
-        raise SavedMetricsException("error writing statefile")
+        raise SavedMetricsException("error writing statefile: %s" % e)
 
 def get_metrics_from_state(missing_as_zero_state_file, metric_prefix):
     """reads the saved metric state from the filesystem
         returns a list of metric objects
         raises SavedMetricsException if it fails to read them (maybe they don't exist)"""
     try:
-        fh = open(missing_as_zero_state_file, 'r')
-        old_state = fh.read()
+        with open(missing_as_zero_state_file, 'r') as fh:
+            metrichashlist = json.load(fh)
     except Exception, e:
-        raise SavedMetricsException("error opening or reading statefile")
-    try:
-        metrichashlist = json.loads(old_state)
-    except Exception, e:
-        raise SavedMetricsException("error decoding json")
+        raise SavedMetricsException("error opening, reading, or decoding statefile: %s" % e)
     metriclist = []
     for m in metrichashlist:
         metricobj = GangliaMetricObject(
-            m["name"],
-            m["value"],
-            m["units"],
-            m["type"],
-            m["tmax"],
-            m["dmax"],
+            m["name"], m["value"], m["units"], m["type"], m["tmax"], m["dmax"],
         )
         metriclist.append(metricobj)
     return metriclist

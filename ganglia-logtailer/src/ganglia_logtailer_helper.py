@@ -12,16 +12,8 @@ class GangliaMetricObject(object):
     def set_value(self, value):
         self.value = value
     def dump_dict(self):
-        """serialize this object to json"""
-        hashed_object = {
-            "name": self.name,
-            "value": self.value,
-            "units": self.units,
-            "type": self.type,
-            "tmax": self.tmax,
-            "dmax": self.dmax,
-        }
-        return hashed_object
+        """serialize this object to a dictionary"""
+        return self.__dict__
     def set_from_dict(self, hashed_object):
         """recreate object from dict"""
         self.name = hashed_object["name"]
