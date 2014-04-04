@@ -1,3 +1,24 @@
+ganglia-logtailer (1.7) stable; urgency=low
+
+  * changed default logging level from INFO to ERROR.  INFO was too verbose
+
+ -- Ben Hartshorne <bhartshorne@wikimedia.org>  Mon, 31 Oct 2011 16:27:34 -0700
+
+ganglia-logtailer (1.6) stable; urgency=low
+
+  * added tmax and dmax as arguments to the GangliaMetricObject so that
+    modules that need a different time period from every minute may tell
+    gmetric to keep the metric around for longer.
+
+ -- Ben Hartshorne <bhartshorne@wikimedia.org>  Mon, 31 Oct 2011 16:15:12 -0700
+
+ganglia-logtailer (1.5) stable; urgency=low
+
+  *submit patch from kazu@lindenlab.com.  Add tomcatlogtailer, and import
+   floor from math for ganglia-logtailer. 
+
+ -- Ben O'Connor <benoc@lindenlab.com>  Wed,  4 May 2011 16:21:15 -0700
+
 ganglia-logtailer (1.4) stable; urgency=low
 
   * changing query name in the Slapd module, normalizing to qps instead of
