@@ -24,21 +24,23 @@ import threading
 import time
 import optparse
 import stat
+import json
 # Logging module
 import logging.handlers
 import fcntl
+from math import floor
 
 # Local dependencies
 sys.path.append("/usr/share/ganglia-logtailer")
 from tailnostate import LogTail
-from ganglia_logtailer_helper import LogtailerParsingException, LogtailerStateException, LockingError
-from math import floor
+from ganglia_logtailer_helper import GangliaMetricObject, LogtailerParsingException, LogtailerStateException, LockingError, SavedMetricsException
 
 ## globals
 gmetric = '/usr/bin/gmetric'
 #gmetric = '/bin/echo'
 logtail = '/usr/sbin/logtail'
-logtail_statedir = '/var/lib/ganglia-logtailer/'
+logtail_state_dir = '/var/lib/ganglia-logtailer/'
+saved_metric_filename = 'missing_as_zero_saved_metrics.state'
 script_start_time = time.time()
 
 ## set up logging infrastructure for use throughout the script
@@ -52,8 +54,8 @@ hdlr = logging.handlers.RotatingFileHandler('%s/ganglia_logtailer.log' % logDir,
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 hdlr.setFormatter(formatter)
 logger.addHandler(hdlr)
-logger.setLevel(logging.INFO)
-#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.ERROR)
+logger.setLevel(logging.DEBUG)
 
 
 ## This provides a lineno() function to make it easy to grab the line
@@ -65,54 +67,116 @@ def lineno():
     """Returns the current line number in our program."""
     return inspect.currentframe().f_back.f_lineno
 
-def submit_stats( parser, metric_prefix, gmetric_options, duration=None  ):
+def submit_stats( parser, missing_as_zero_state_file, missing_as_zero, metric_prefix, gmetric_options, duration=None  ):
     if( duration != None ):
         # this only happens in cron mode
         parser.set_check_duration(duration)
     try:
+        # get current metrics
         metrics = parser.get_state()
+        # read in saved metric values if we're supposed to report them as zero
+        if missing_as_zero:
+            try:
+                old_metrics = get_metrics_from_state(missing_as_zero_state_file, metric_prefix)
+            except SavedMetricsException:
+                # failed to read saved metrics for some reason. pretend we got an empty answer.
+                old_metrics = []
+            for m in old_metrics:
+                if m not in metrics:
+                    m.set_value(0)
+                    metrics.append(m)
+            # save metrics for the next run
+            try:
+                save_metric_state(metrics, missing_as_zero_state_file, metric_prefix)
+            except SavedMetricsException:
+                # moops.  failed to save.  oh well.
+                pass
         for m in metrics:
 
             if ( metric_prefix != "" ):
                 m.name = metric_prefix + "_" + m.name
 
-            logger.debug( "Submitting gmetric: %s %s --name %s --value %s --type %s --units %s" %
-                 (gmetric, gmetric_options, m.name, m.value, m.type, m.units) )
-            os.system("%s %s --name %s --value %s --type %s --units %s" %
-                (gmetric, gmetric_options, m.name, m.value, m.type, m.units) )
+            logger.debug( "Submitting gmetric: %s %s --name %s --value %s --type %s --units %s --tmax %s --dmax %s" %
+                 (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
+            os.system("%s %s --name %s --value %s --type %s --units %s --tmax %s --dmax %s" %
+                (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
     except LogtailerStateException, e:
         logger.warning( "State exception caught (line %s): %s" % (lineno(), e) )
 
+def save_metric_state(metrics, missing_as_zero_state_file, metric_prefix):
+    """takes a list of ganglia metric objects, writes them to the filesystem.
+        no return value
+        raises SavedMetricsException on failure"""
+    metriclist = []
+    for m in metrics:
+        metrichash = m.dump_dict()
+        metriclist.append(metrichash)
+    json_state = json.dumps(metriclist)
+    try:
+        fh = open(missing_as_zero_state_file, 'w')
+        fh.write(json_state)
+    except Exception, e:
+        raise SavedMetricsException("error writing statefile")
+
+def get_metrics_from_state(missing_as_zero_state_file, metric_prefix):
+    """reads the saved metric state from the filesystem
+        returns a list of metric objects
+        raises SavedMetricsException if it fails to read them (maybe they don't exist)"""
+    try:
+        fh = open(missing_as_zero_state_file, 'r')
+        old_state = fh.read()
+    except Exception, e:
+        raise SavedMetricsException("error opening or reading statefile")
+    try:
+        metrichashlist = json.loads(old_state)
+    except Exception, e:
+        raise SavedMetricsException("error decoding json")
+    metriclist = []
+    for m in metrichashlist:
+        metricobj = GangliaMetricObject(
+            m["name"],
+            m["value"],
+            m["units"],
+            m["type"],
+            m["tmax"],
+            m["dmax"],
+        )
+        metriclist.append(metricobj)
+    return metriclist
 
 # function gmetric_manager
 # takes a parser object - class instance
-def gmetric_manager( parser ):
+class GMetricManager(object):
     '''This process should be used to start the thread that calls
     gmetric every so often.  It should get the period and data from the
     parser object'''
-    period = parser.period
+    def __init__(self, missing_as_zero_state_file, missing_as_zero, metric_prefix, gmetric_options):
+        self.__missing_as_zero_state_file = missing_as_zero_state_file
+        self.__missing_as_zero = missing_as_zero
+        self.__metric_prefix = metric_prefix
+        self.__gmetric_options = gmetric_options
+    def __call__(self, parser):
+        period = parser.period
 
-    # wait one period the first time (so we have something to report)
-    time.sleep(period)
+        # wait one period the first time (so we have something to report)
+        time.sleep(period)
 
-    while True:
-        logger.debug("manager: starting")
-        start = time.time()
-        # submit the stats
-        submit_stats(parser,metric_prefix,gmetric_options)
-        finish = time.time()
-        runtime = finish - start
-        sleep_time = period - runtime
-        while( sleep_time <= 0 ):
-            logger.info( "manager: calculation time is longer than period.  doubling period to %s." % (period * 2) )
-            sleep_time += period
-            period *= 2
-            # tell the logtailer class that we're slowing period
-            parser.period = period
-        logger.debug( "manager: sleeping for %s" % sleep_time)
-        time.sleep(sleep_time)
-
-
+        while True:
+            logger.debug("manager: starting")
+            start = time.time()
+            # submit the stats
+            submit_stats(parser, self.__missing_as_zero_state_file, self.__missing_as_zero, self.__metric_prefix, self.__gmetric_options)
+            finish = time.time()
+            runtime = finish - start
+            sleep_time = period - runtime
+            while( sleep_time <= 0 ):
+                logger.info( "manager: calculation time is longer than period.  doubling period to %s." % (period * 2) )
+                sleep_time += period
+                period *= 2
+                # tell the logtailer class that we're slowing period
+                parser.period = period
+            logger.debug( "manager: sleeping for %s" % sleep_time)
+            time.sleep(sleep_time)
 
 # function start_locking
 def start_locking(lockfile_name):
@@ -160,13 +224,15 @@ def main():
     cmdline.add_option('--classname', '-c', action='store', help='The name of the plugin to use to parse the log file')
     cmdline.add_option('--log_file', '-l', action='store', help='The path to the file to tail and parse')
     cmdline.add_option('--metric_prefix', '-p', action='store', help='Add prefix to all published metrics. This is for people that may multiple instances of same service on same host. So if your metric is e.g. gc_time it becomes tomcat1_gc_time', default='' )
-    cmdline.add_option('--gmetric_options', '-g', action='store', help='Options to pass to gmetric such as -d 180 -c /etc/ganglia/gmond.conf (default). These are passed directly to gmetric',
-                       default='-d 180 -c /etc/ganglia/gmond.conf' )
+    cmdline.add_option('--gmetric_options', '-g', action='store', help='Options to pass to gmetric such as -c /etc/ganglia/gmond.conf (default). These are passed directly to gmetric',
+                       default='-c /etc/ganglia/gmond.conf' )
     cmdline.add_option('--mode', '-m', action='store', type='choice',
                        choices=('daemon', 'cron'), default='cron',
                        help='MODE must be "cron" or "daemon".  Cron mode (default) is designed to be called every X minutes.  Daemon mode is a persistent process.')
-    cmdline.add_option('--state_dir', '-s', action='store', default=logtail_statedir,
-                       help='The state dir is used in cron mode, and is where to store the logtail state file.  Default location %s' % logtail_statedir)
+    cmdline.add_option('--state_dir', '-s', action='store', default=logtail_state_dir,
+                       help='The state dir is used in cron mode, and is where to store the logtail state file.  Default location %s' % logtail_state_dir)
+    cmdline.add_option('--missing_as_zero', '-z', action='store_true', default=False,
+                        help="Remember any metrics seen and if they're missing in any given run, report them as zero")
 
     options, arguments = cmdline.parse_args()
 #    print ('classname = %s, log_file = %s, mode = %s, state_file = %s' % (options.classname, options.log_file, options.mode, options.state_dir) )
@@ -177,9 +243,11 @@ def main():
     metric_prefix = options.metric_prefix
     gmetric_options = options.gmetric_options
     state_dir = options.state_dir
+    missing_as_zero = options.missing_as_zero
     dirsafe_logfile = log_file.replace('/','-')
     logtail_state_file = '%s/logtail-%s%s.state' % (state_dir, class_name, dirsafe_logfile)
     logtail_lock_file = '%s/logtail-%s%s.lock' % (state_dir, class_name, dirsafe_logfile)
+    missing_as_zero_state_file = '%s/logtail-%s%s-metrics.state' % (state_dir, class_name, dirsafe_logfile)
 
     # only used in cron mode
     shell_tail = '%s -f %s -o %s' % (logtail, log_file, logtail_state_file)
@@ -247,7 +315,7 @@ def main():
     # if we're a daemon, launch the other thread (cron mode runs after the parsing)
     if ( mode == 'daemon' ):
         #launch gmetric caller thread
-        submitter = threading.Thread(target=gmetric_manager, args=[parser])
+        submitter = threading.Thread(target=GMetricManager(missing_as_zero_state_file, missing_as_zero, metric_prefix, gmetric_options), args=[parser])
         # the process should die when the main thread dies
         submitter.setDaemon( True )
         submitter.start()
@@ -281,7 +349,7 @@ def main():
             # something's borked.  cron's minimum is 60s
             logger.warning('duration (%s) less than 45s, despite being called from cron.  Shouldn\'t happen. (line: %s)' % (duration, lineno()))
         #print 'metric measure with duration: %s' % duration
-        submit_stats(parser, metric_prefix, gmetric_options, duration=duration)
+        submit_stats(parser, missing_as_zero_state_file, missing_as_zero, metric_prefix, gmetric_options, duration=duration)
         # Reset mtime/atime on state file so duration isn't thrown off by long execution times.
         os.utime(logtail_state_file, (floor(script_start_time), floor(script_start_time)))
         end_locking(lockfile, logtail_lock_file)
