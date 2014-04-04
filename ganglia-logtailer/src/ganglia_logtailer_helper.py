@@ -2,12 +2,13 @@
 """class for ganglia metric objects to be passed around"""
 
 class GangliaMetricObject(object):
-    def __init__(self, name, value, units='', type='float', tmax=60):
+    def __init__(self, name, value, units='', type='float', tmax=60, dmax=0):
         self.name = name
         self.value = value
         self.units = units
         self.type = type
         self.tmax = tmax
+        self.dmax = dmax
 
 class LogtailerParsingException(Exception):
     """Raise this exception if the parse_line function wants to
