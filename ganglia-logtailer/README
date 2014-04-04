@@ -107,11 +107,11 @@ wait 30s to 1m, then check and see whether your new metric is present in
 ganglia.
 
 If all goes well, try out one of the real modules:
-# ganglia-logtailer --classname PostfixLogtailer --log-file /var/log/mail.log --mode daemon
+# ganglia-logtailer --classname PostfixLogtailer --log_file /var/log/mail.log --mode daemon
 
 If that works as well, deploy!  Add the following to
 /etc/cron.d/ganglia-logtailer
-* * * * * root /usr/local/bin/ganglia-logtailer --classname PostfixLogtailer --log-file /var/log/mail.log --mode cron
+* * * * * root /usr/local/bin/ganglia-logtailer --classname PostfixLogtailer --log_file /var/log/mail.log --mode cron
 
 3. License
 
