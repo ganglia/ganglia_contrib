@@ -100,7 +100,7 @@ def submit_stats( parser, missing_as_zero_state_file, missing_as_zero, metric_pr
 
             logger.debug( "Submitting gmetric: %s %s --name %s --value %s --type %s --units %s --tmax %s --dmax %s" %
                  (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
-            os.system("%s %s --name %s --value %s --type %s --units %s --tmax %s --dmax %s" %
+            os.system("%s %s --name '%s' --value '%s' --type '%s' --units '%s' --tmax '%s' --dmax '%s'" %
                 (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
     except LogtailerStateException, e:
         logger.warning( "State exception caught (line %s): %s" % (lineno(), e) )
