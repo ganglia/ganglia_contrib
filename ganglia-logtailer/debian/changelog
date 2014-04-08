@@ -2,6 +2,8 @@ ganglia-logtailer (1.9) stable; urgency=low
 
   * switching from os.system() with string interpolation to subprocess.call
     to protect the call out from bad metric names (eg special characters)
+  * sanitizing the metric name before submission by stripping out all
+    non-alphanumerics except hyphen, period, and underscore
 
  -- Ben Hartshorne <ben@hartshorne.net>  Mon,  7 Apr 2014 17:48:00 -0700
 

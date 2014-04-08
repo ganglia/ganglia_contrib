@@ -1,5 +1,6 @@
 #!/usr/bin/python
 """class for ganglia metric objects to be passed around"""
+import re
 
 class GangliaMetricObject(object):
     def __init__(self, name, value, units='', type='float', tmax=60, dmax=0):
@@ -22,6 +23,9 @@ class GangliaMetricObject(object):
         self.type = hashed_object["type"]
         self.tmax = hashed_object["tmax"]
         self.dmax = hashed_object["dmax"]
+    def sanitize_metric_name(self):
+        """sanitize metric names by translating all non alphanumerics to underscore"""
+        self.name = re.sub("[^A-Za-z0-9._-]", "_", self.name)
     def __eq__(self, other):
         """A ganglia metric object is equivalent if the name is the same."""
         return self.name == other.name

@@ -95,10 +95,9 @@ def submit_stats( parser, missing_as_zero_state_file, missing_as_zero, metric_pr
                 logger.debug(e)
                 pass
         for m in metrics:
-
+            m.sanitize_metric_name()
             if ( metric_prefix != "" ):
                 m.name = metric_prefix + "_" + m.name
-
             logger.debug( "Submitting gmetric: %s %s --name %s --value %s --type %s --units %s --tmax %s --dmax %s" %
                  (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
             gmetric_call = [
