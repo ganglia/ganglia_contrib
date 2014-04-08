@@ -19,6 +19,7 @@
 
 # System Libraries
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -100,8 +101,16 @@ def submit_stats( parser, missing_as_zero_state_file, missing_as_zero, metric_pr
 
             logger.debug( "Submitting gmetric: %s %s --name %s --value %s --type %s --units %s --tmax %s --dmax %s" %
                  (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
-            os.system("%s %s --name '%s' --value '%s' --type '%s' --units '%s' --tmax '%s' --dmax '%s'" %
-                (gmetric, gmetric_options, m.name, m.value, m.type, m.units, m.tmax, m.dmax) )
+            gmetric_call = [
+                 gmetric,
+                 "--name", str(m.name),
+                 "--value", str(m.value),
+                 "--type", str(m.type),
+                 "--units", str(m.units),
+                 "--tmax", str(m.tmax),
+                 "--dmax", str(m.dmax)
+                 ] + gmetric_options
+            subprocess.call(gmetric_call)
     except LogtailerStateException, e:
         logger.warning( "State exception caught (line %s): %s" % (lineno(), e) )
 
@@ -233,7 +242,7 @@ def main():
     log_file = options.log_file
     mode = options.mode
     metric_prefix = options.metric_prefix
-    gmetric_options = options.gmetric_options
+    gmetric_options = options.gmetric_options.split()
     state_dir = options.state_dir
     missing_as_zero = options.missing_as_zero
     dirsafe_logfile = log_file.replace('/','-')
