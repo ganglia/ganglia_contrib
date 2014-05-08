@@ -7,6 +7,29 @@ Main changes are
   - Support for Ganglia 3.1
   - Ability to specify metric group which gets grouped in the Ganglia Web UI. 
 
+
+Latest version can also be used inside your own Python code with optionally
+reading system's gmond.conf e.g.
+
+========= CODE ==========
+
+from gmetric import get_gmetrics
+
+# Parse the config file to get all gmetric channels
+gmetrics = get_gmetrics('/etc/ganglia/gmond.conf')
+spoof = "%s:%s" % (hostname, hostname)
+
+Then you can do thins like these
+
+    for gmetric in gmetrics:
+        gmetric.send('uptime', uptime,
+                     TYPE='float', UNITS='seconds', SPOOF=spoof,
+                     GROUP='mydaemon', DMAX=20)
+        gmetric.send('some_count', upstreamCount,
+                     TYPE='float', SPOOF=spoof, UNITS='count',
+                     GROUP='mydaemon', DMAX=3600)
+
+
 Acknowledgements:
 
 Thanks to Ilya Grigorik for posting Ruby Gmetric

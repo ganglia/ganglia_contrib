@@ -40,7 +40,7 @@
 
 
 from xdrlib import Packer, Unpacker
-import socket
+import socket, re
 
 slope_str2int = {'zero':0,
                  'positive':1,
@@ -152,6 +152,22 @@ def gmetric_read(msg):
     values['DMAX'] = unpacker.unpack_uint()
     unpacker.done()
     return values
+
+def get_gmetrics(path):
+    data = open(path).read()
+    start = 0
+    out = []
+    while True:
+        m = re.search('udp_send_channel +\{([^}]+)\}', data[start:], re.M)
+        if not m:
+            break
+        start += m.end()
+        tokens = re.split('\s+', m.group(1).strip())
+        host = tokens[tokens.index('host')+2]
+        port = int(tokens[tokens.index('port')+2])
+        out.append(Gmetric(host, port, 'udp'))
+    return out
+
 
 
 if __name__ == '__main__':
