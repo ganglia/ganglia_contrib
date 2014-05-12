@@ -26,13 +26,12 @@ class TomcatLogtailer(object):
         needed for the internal state of the line parser.'''
         self.reset_state()
         self.lock = threading.RLock()
-        # this is what will match the tomcat lines
-        # tomcat log format string:
-        # %v %A %a %u %{%Y-%m-%dT%H:%M:%S}t %c %s %>s %B %D %{cookie}n \"%{Referer}i\" \"%r\" \"%{User-Agent}i\" %P
-        # host.com 127.0.0.1 127.0.0.1 - 2008-05-08T07:34:44 - 200 200 371 103918 - "-" "GET /path HTTP/1.0" "-" 23794
-        # match keys: server_name, local_ip, remote_ip, date, conn_status, init_retcode, final_retcode, size,
-        #               req_time, cookie, referrer, request, user_agent, pid
-        self.reg = re.compile("^INFO: \[\] webapp=(?P<webapp>[^\s]+) path=(?P<path>[^\s]+) params=(?P<params>\{[^\}]*\}) status=(?P<status>[^\s]+) QTime=(?P<qtime>[0-9]+)$")
+        # This is what will match the tomcat lines
+        # Tomcat access log valve pattern string:
+        #  %h %l %u %t &quot;%r&quot; %s %b %D
+        # Sample Line:
+        #  10.0.1.31 - - [08/Jul/2013:12:44:19 -0400] "OPTIONS /status HTTP/1.0" 200 - 0
+        self.reg = re.compile("(?P<host>[0-9]+(?:\.[0-9]+){3}) (?P<ident>[^\s]+) (?P<user>[^\s]+) (?P<date>\[([^\]]+)\]) (?P<req>\"([A-Z]+)[^\"]*\") (?P<status>\d+) (?P<bytes>[^\s]+) (?P<qtime>\d+)")
         # assume we're in daemon mode unless set_check_duration gets called
         self.dur_override = False
 
