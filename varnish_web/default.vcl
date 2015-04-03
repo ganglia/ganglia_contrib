@@ -1,10 +1,13 @@
+# Specify a backend e.g. your Apache server running Ganglia
 backend default {
     .host = "127.0.0.1";
-    .port = "80";
+    .port = "8080";
     .first_byte_timeout = 60s;
 }
 
 sub vcl_recv {
+  # We are exposing Ganglia via varnish as /ganglia3/. So we need to rewrite
+  # the URL we send to the backend since Ganglia lives under /ganglia2 
   if (req.url ~ "^/ganglia3") {
     set req.url = regsub(req.url, "^/ganglia3", "/ganglia2");
   }
@@ -34,7 +37,7 @@ sub vcl_fetch {
 
    # By default cache all graphs for 30 seconds however tell the browser to cache it for 15 seconds
    if (req.url ~ "/(ganglia2/)?graph.php") {
-     set beresp.ttl = 30s;
+     set beresp.ttl = 15s;
      set beresp.http.Cache-Control = "public, max-age=15";
      unset beresp.http.Pragma;
      unset beresp.http.Expires;
