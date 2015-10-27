@@ -135,7 +135,8 @@ class CarbonPlugin(GmetadPlugin):
         for metric in metrics:
             try:
                 logging.debug("Sending text data to carbon")
-                self.carbon_socket.sendall(" ".join(metric))
+                # each line sent to carbon should look like: <metric name> <value> <timestamp>
+                self.carbon_socket.sendall("%s %s %s\n" % (str(metric[0]), str(metric[2]), str(metric[1])))
             except Exception as e:
                 logging.error("Failed to send metrics to carbon:\n%s" % e)
                 self._connectCarbon()
