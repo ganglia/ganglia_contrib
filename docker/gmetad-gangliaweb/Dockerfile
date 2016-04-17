@@ -2,6 +2,8 @@ FROM debian:jessie
 
 MAINTAINER Vladimir Vuksan <vlemp@vuksan.com>
 
+COPY config /config
+
 RUN apt-get update
 RUN apt-get upgrade -y
 
@@ -31,6 +33,14 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y gmetad rrdcached rrdtool g
 
 # Enable ganglia-webui
 RUN ln -s /etc/ganglia-webfrontend/apache.conf /etc/apache2/sites-enabled/002-ganglia.conf
+
+# Install Graphite pieces
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y python-rrdtool graphite-web
+
+RUN rm -f /etc/apache2/sites-enabled/000-default.conf
+RUN ln -s /config/graphite_apache.conf /etc/apache2/sites-enabled/000-default.conf
+
+RUN /bin/sh /config/graphite_install.sh
 
 # Make ganglia and rrdcached talk
 RUN sed -i '/#OPTS=""/c\OPTS=" -t 60 -w 300 -z 300 -F -s ganglia -m 664 -l 127.0.0.1:9998 -s ganglia -m 777 -P FLUSH,STATS,HELP -l unix:/tmp/rrdcached.limited.sock -b /var/lib/ganglia/rrds -B -p /var/lib/ganglia/rrdcached.pid"' /etc/default/rrdcached

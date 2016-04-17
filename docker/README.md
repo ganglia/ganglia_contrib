@@ -26,7 +26,7 @@ and just mount it inside the gmetad container. This is so we can persist it easi
 For example we'll need to do something like this
 
 ```
-sudo mkdir -p /var/lib/ganglia/rrds /etc/ganglia
+sudo mkdir -p /var/lib/ganglia/rrds /etc/ganglia /etc/ganglia-webfrontend
 sudo chown -R 999:999 /var/lib/ganglia
 sudo sh -c "cat > /etc/ganglia/gmetad.conf <<EOL
 data_source \"web-cluster\" gmond1:8649
@@ -35,6 +35,9 @@ setuid_username \"ganglia\"
 # RRDCached_address available in Ganglia 3.7.0+
 #rrdcached_address 127.0.0.1:9998
 case_sensitive_hostnames 0
+EOL"
+sudo sh -c "cat > /etc/ganglia-webfrontend/conf.php <<EOL
+<?php
 EOL"
 ```
 
