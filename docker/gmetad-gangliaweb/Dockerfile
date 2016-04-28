@@ -45,6 +45,8 @@ RUN /bin/sh /config/graphite_install.sh
 # Make ganglia and rrdcached talk
 RUN sed -i '/#OPTS=""/c\OPTS=" -t 60 -w 300 -z 300 -F -s ganglia -m 664 -l 127.0.0.1:9998 -s ganglia -m 777 -P FLUSH,STATS,HELP -l unix:/tmp/rrdcached.limited.sock -b /var/lib/ganglia/rrds -B -p /var/lib/ganglia/rrdcached.pid"' /etc/default/rrdcached
 
+ENV RRDCACHED_ADDRESS 127.0.0.1:9998
+
 # Adjust permissions
 RUN touch /var/lib/ganglia-web/conf/events.json
 RUN chown ganglia:ganglia /var/lib/ganglia-web/conf/events.json
