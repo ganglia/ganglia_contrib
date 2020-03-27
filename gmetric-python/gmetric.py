@@ -139,18 +139,32 @@ def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
 
     return ( packer.get_buffer() ,  data.get_buffer() )
 
-def gmetric_read(msg):
-    unpacker = Unpacker(msg)
+def gmetric_read(header_msg, data_msg):
+    header = Unpacker(header_msg)
+    data = Unpacker(data_msg)
     values = dict()
-    unpacker.unpack_int()
-    values['TYPE'] = unpacker.unpack_string()
-    values['NAME'] = unpacker.unpack_string()
-    values['VAL'] = unpacker.unpack_string()
-    values['UNITS'] = unpacker.unpack_string()
-    values['SLOPE'] = slope_int2str[unpacker.unpack_int()]
-    values['TMAX'] = unpacker.unpack_uint()
-    values['DMAX'] = unpacker.unpack_uint()
-    unpacker.done()
+    header.unpack_int()
+    values['HOSTNAME'] = str(header.unpack_string().decode('ascii'))
+    values['NAME'] = str(header.unpack_string().decode('ascii'))
+    values['SPOOFENABLED'] = header.unpack_int()
+    values['TYPE'] = str(header.unpack_string().decode('ascii'))
+    values['NAME'] = str(header.unpack_string().decode('ascii'))
+    values['UNITS'] = str(header.unpack_string().decode('ascii'))
+    values['SLOPE'] = slope_int2str[header.unpack_int()]
+    values['TMAX'] = header.unpack_uint()
+    values['DMAX'] = header.unpack_uint()
+    if header.unpack_int() == 1:
+        header.unpack_string()
+        values['GROUP'] = str(header.unpack_string().decode('ascii'))
+    # Actual data in the second packet
+    data.unpack_int()
+    values['HOSTNAME'] = str(data.unpack_string().decode('ascii'))
+    values['NAME'] = str(data.unpack_string().decode('ascii'))
+    values['SPOOFENABLED'] = data.unpack_int()
+    data.unpack_string()
+    values['VAL'] = str(data.unpack_string().decode('ascii'))
+    header.done()
+    data.done()
     return values
 
 def get_gmetrics(path):
