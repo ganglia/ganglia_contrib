@@ -58,7 +58,7 @@ slope_int2str = {0: 'zero',
 
 class Gmetric:
     """
-    Class to send gmetric/gmond 2.X packets
+    Class to send gmetric/gmond 3.X packets
 
     Thread safe
     """
@@ -106,14 +106,14 @@ def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
     # Meta data about a metric
     packer.pack_int(128)
     if SPOOFENABLED == 1:
-        packer.pack_string(SPOOF)
+        packer.pack_string(SPOOF.encode('ascii', 'ignore'))
     else:
-        packer.pack_string(HOSTNAME)
-    packer.pack_string(NAME)
+        packer.pack_string(HOSTNAME.encode('ascii', 'ignore'))
+    packer.pack_string(NAME.encode('ascii', 'ignore'))
     packer.pack_int(SPOOFENABLED)
-    packer.pack_string(TYPE)
-    packer.pack_string(NAME)
-    packer.pack_string(UNITS)
+    packer.pack_string(TYPE.encode('ascii', 'ignore'))
+    packer.pack_string(NAME.encode('ascii', 'ignore'))
+    packer.pack_string(UNITS.encode('ascii', 'ignore'))
     packer.pack_int(slope_str2int[SLOPE]) # map slope string to int
     packer.pack_uint(int(TMAX))
     packer.pack_uint(int(DMAX))
@@ -122,20 +122,20 @@ def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
         packer.pack_int(0)
     else:
         packer.pack_int(1)
-        packer.pack_string("GROUP")
-        packer.pack_string(GROUP)
+        packer.pack_string("GROUP".encode('ascii', 'ignore'))
+        packer.pack_string(GROUP.encode('ascii', 'ignore'))
 
     # Actual data sent in a separate packet
     data = Packer()
     data.pack_int(128+5)
     if SPOOFENABLED == 1:
-        data.pack_string(SPOOF)
+        data.pack_string(SPOOF.encode('ascii', 'ignore'))
     else:
-        data.pack_string(HOSTNAME)
-    data.pack_string(NAME)
+        data.pack_string(HOSTNAME.encode('ascii', 'ignore'))
+    data.pack_string(NAME.encode('ascii', 'ignore'))
     data.pack_int(SPOOFENABLED)
-    data.pack_string("%s")
-    data.pack_string(str(VAL))
+    data.pack_string("%s".encode('ascii', 'ignore'))
+    data.pack_string(str(VAL).encode('ascii', 'ignore'))
 
     return ( packer.get_buffer() ,  data.get_buffer() )
 
