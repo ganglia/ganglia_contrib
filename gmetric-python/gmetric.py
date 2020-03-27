@@ -37,6 +37,10 @@
 #
 # Version 3.1 - 30-Apr-2011 Author: Adam Tygart
 #   Added Spoofing support
+#
+# Version 3.2 - 27-Apr-2020 Author: Adam Tygart
+#   Python3 support
+#   gmetric_read gained 3.x packet support
 
 
 from xdrlib import Packer, Unpacker
