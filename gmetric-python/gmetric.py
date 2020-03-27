@@ -37,6 +37,10 @@
 #
 # Version 3.1 - 30-Apr-2011 Author: Adam Tygart
 #   Added Spoofing support
+#
+# Version 3.2 - 27-Apr-2020 Author: Adam Tygart
+#   Python3 support
+#   gmetric_read gained 3.x packet support
 
 
 from xdrlib import Packer, Unpacker
@@ -58,7 +62,7 @@ slope_int2str = {0: 'zero',
 
 class Gmetric:
     """
-    Class to send gmetric/gmond 2.X packets
+    Class to send gmetric/gmond 3.X packets
 
     Thread safe
     """
@@ -106,14 +110,14 @@ def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
     # Meta data about a metric
     packer.pack_int(128)
     if SPOOFENABLED == 1:
-        packer.pack_string(SPOOF)
+        packer.pack_string(SPOOF.encode('ascii', 'ignore'))
     else:
-        packer.pack_string(HOSTNAME)
-    packer.pack_string(NAME)
+        packer.pack_string(HOSTNAME.encode('ascii', 'ignore'))
+    packer.pack_string(NAME.encode('ascii', 'ignore'))
     packer.pack_int(SPOOFENABLED)
-    packer.pack_string(TYPE)
-    packer.pack_string(NAME)
-    packer.pack_string(UNITS)
+    packer.pack_string(TYPE.encode('ascii', 'ignore'))
+    packer.pack_string(NAME.encode('ascii', 'ignore'))
+    packer.pack_string(UNITS.encode('ascii', 'ignore'))
     packer.pack_int(slope_str2int[SLOPE]) # map slope string to int
     packer.pack_uint(int(TMAX))
     packer.pack_uint(int(DMAX))
@@ -122,35 +126,49 @@ def gmetric_write(NAME, VAL, TYPE, UNITS, SLOPE, TMAX, DMAX, GROUP, SPOOF):
         packer.pack_int(0)
     else:
         packer.pack_int(1)
-        packer.pack_string("GROUP")
-        packer.pack_string(GROUP)
+        packer.pack_string("GROUP".encode('ascii', 'ignore'))
+        packer.pack_string(GROUP.encode('ascii', 'ignore'))
 
     # Actual data sent in a separate packet
     data = Packer()
     data.pack_int(128+5)
     if SPOOFENABLED == 1:
-        data.pack_string(SPOOF)
+        data.pack_string(SPOOF.encode('ascii', 'ignore'))
     else:
-        data.pack_string(HOSTNAME)
-    data.pack_string(NAME)
+        data.pack_string(HOSTNAME.encode('ascii', 'ignore'))
+    data.pack_string(NAME.encode('ascii', 'ignore'))
     data.pack_int(SPOOFENABLED)
-    data.pack_string("%s")
-    data.pack_string(str(VAL))
+    data.pack_string("%s".encode('ascii', 'ignore'))
+    data.pack_string(str(VAL).encode('ascii', 'ignore'))
 
     return ( packer.get_buffer() ,  data.get_buffer() )
 
-def gmetric_read(msg):
-    unpacker = Unpacker(msg)
+def gmetric_read(header_msg, data_msg):
+    header = Unpacker(header_msg)
+    data = Unpacker(data_msg)
     values = dict()
-    unpacker.unpack_int()
-    values['TYPE'] = unpacker.unpack_string()
-    values['NAME'] = unpacker.unpack_string()
-    values['VAL'] = unpacker.unpack_string()
-    values['UNITS'] = unpacker.unpack_string()
-    values['SLOPE'] = slope_int2str[unpacker.unpack_int()]
-    values['TMAX'] = unpacker.unpack_uint()
-    values['DMAX'] = unpacker.unpack_uint()
-    unpacker.done()
+    header.unpack_int()
+    values['HOSTNAME'] = str(header.unpack_string().decode('ascii'))
+    values['NAME'] = str(header.unpack_string().decode('ascii'))
+    values['SPOOFENABLED'] = header.unpack_int()
+    values['TYPE'] = str(header.unpack_string().decode('ascii'))
+    values['NAME'] = str(header.unpack_string().decode('ascii'))
+    values['UNITS'] = str(header.unpack_string().decode('ascii'))
+    values['SLOPE'] = slope_int2str[header.unpack_int()]
+    values['TMAX'] = header.unpack_uint()
+    values['DMAX'] = header.unpack_uint()
+    if header.unpack_int() == 1:
+        header.unpack_string()
+        values['GROUP'] = str(header.unpack_string().decode('ascii'))
+    # Actual data in the second packet
+    data.unpack_int()
+    values['HOSTNAME'] = str(data.unpack_string().decode('ascii'))
+    values['NAME'] = str(data.unpack_string().decode('ascii'))
+    values['SPOOFENABLED'] = data.unpack_int()
+    data.unpack_string()
+    values['VAL'] = str(data.unpack_string().decode('ascii'))
+    header.done()
+    data.done()
     return values
 
 def get_gmetrics(path):
