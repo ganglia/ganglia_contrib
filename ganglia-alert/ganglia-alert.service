@@ -3,7 +3,7 @@ Description=Ganglia Alert Service
 
 [Service]
 Type=simple
-PIDFile=/var/run/ganglia-alert.pid
+PIDFile=/run/ganglia-alert.pid
 ExecStart=/home/user/ganglia-alert -d -c /home/user/ganglia_config.txt
 Restart=always
 
