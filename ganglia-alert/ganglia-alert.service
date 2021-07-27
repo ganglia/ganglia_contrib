@@ -1,0 +1,12 @@
+[Unit]
+Description=Ganglia Alert Service
+
+[Service]
+Type=simple
+PIDFile=/run/ganglia-alert.pid
+ExecStart=/home/user/ganglia-alert -d -c /home/user/ganglia_config.txt
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+Alias=ganglia-alert.service
